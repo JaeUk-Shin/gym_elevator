@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 from os import path
-
+import random
 
 class ElevatorEnv(gym.Env):
 	def __init__(self):
@@ -18,10 +18,11 @@ class ElevatorEnv(gym.Env):
 
 		self.state = None
 
-
 		self.cmd_time = np.load(path.join(path.dirname(__file__), "cmd_time.npy"))
 		self.departure = np.load(path.join(path.dirname(__file__), "departure.npy"))
 		self.destination = np.load(path.join(path.dirname(__file__), "destination.npy"))
+
+		self.num_data = self.cmd_time.shape[0]
 
 		self.content = None
 
@@ -31,30 +32,20 @@ class ElevatorEnv(gym.Env):
 		self.t = None
 		self.dt = 0.15
 
-		self.begin = 0
+		self._BEGIN = None
+		self._END = None
 
-		self.floors = None
+		self.floors = None		# family of InConveyors
 
 		return
 
 	def step(self, action):
 
-		prev_t = self.t - self.dt
-		end = self.begin
-
-		while prev_t <= self.cmd_time[end] < self.t:
-			end += 1
-
-		for idx in range(self.begin, end):
-			cmd_t = self.cmd_time[idx]
-			depart = self.departure[idx]
-			to = self.destination[idx]
-			self.floors[depart].append((cmd_t, to))
-
 		if action == 1:
 			if self.is_full:
 				if self.content[1] == self.elevator_pos:
 					self.content = None		# release elevator
+					self.is_full = False
 				else:
 					pass
 			else:
@@ -62,6 +53,7 @@ class ElevatorEnv(gym.Env):
 					pass
 				else:
 					self.content = self.floors[self.elevator_pos].pop(0)
+					self.is_full = True
 
 		self.elevator_pos = max(min(3, self.elevator_pos + (action - 1)), 1)
 
@@ -90,13 +82,14 @@ class ElevatorEnv(gym.Env):
 
 		self.state = np.array([float(self.is_full), dest, self.elevator_pos, waiting1, waiting2, waiting3])
 
-		self.t += self.dt
-		self.begin = end
+		self.simulate_arrival()
 
 		return self.state, reward, done, {}
 
 	def reset(self):
-		self.t = self.dt
+		self._BEGIN = 0
+		self._END = 0
+		self.t = 0.
 		self.is_full = False
 		self.elevator_pos = 2		# elevator begins to operate at the 2nd floor
 
@@ -107,6 +100,45 @@ class ElevatorEnv(gym.Env):
 		return self.state
 
 	def render(self, mode='human'):
+		print('elapsed time = {:.0f} sec'.format(60. * self.t))
+		print('{} wafers have arrived'.format(self._BEGIN))
+		for i in range(3, 0, -1):
+			print('Floor{} | '.format(i), end='')
+
+			# denote the position of the elevator & whether elevator is filled
+			if self.elevator_pos == i:
+				print('@', end='')
+				if self.is_full:
+					print('o ', end='')
+				else:
+					print('  ', end='')
+			else:
+				print('   ', end='')
+
+			print('| {:.1f}s |'.format(60 * (self.t - self.floors[i][0][0])), end='')
+
+			print('|'.format(i), len(self.floors[i]) * '*')
+		print('\n')
+		return
+
+	def simulate_arrival(self):
+		next_t = self.t + self.dt
+
+		while self._END < self.num_data:
+			if self.t < self.cmd_time[self._END] <= next_t:
+				self._END += 1
+			else:
+				break
+
+		for idx in range(self._BEGIN, self._END):
+			cmd_t = self.cmd_time[idx]
+			depart = self.departure[idx]
+			to = self.destination[idx]
+			self.floors[depart].append((cmd_t, to))		# add load to the queue
+
+		self.t += self.dt
+		self._BEGIN = self._END
+
 		return
 
 if __name__ == '__main__':
@@ -123,3 +155,10 @@ if __name__ == '__main__':
 	"""
 
 	env = ElevatorEnv()
+
+	env.reset()
+
+	for i in range(100):
+		action = np.random.choice(4)
+		_, _, _, _ = env.step(action)
+		env.render()
