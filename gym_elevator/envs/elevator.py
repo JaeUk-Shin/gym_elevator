@@ -1,7 +1,8 @@
 import gym
 import numpy as np
 from os import path
-import random
+from gym_elevator.envs.conveyor import Wafer, ConveyorBelt
+
 
 class ElevatorEnv(gym.Env):
 	def __init__(self):
@@ -23,6 +24,7 @@ class ElevatorEnv(gym.Env):
 		self.destination = np.load(path.join(path.dirname(__file__), "destination.npy"))
 
 		self.num_data = self.cmd_time.shape[0]
+		self.newly_added = None
 
 		self.content = None
 
@@ -35,7 +37,7 @@ class ElevatorEnv(gym.Env):
 		self._BEGIN = None
 		self._END = None
 
-		self.floors = None		# family of InConveyors
+		self.conveyors = None		# family of InConveyors
 
 		return
 
@@ -49,29 +51,17 @@ class ElevatorEnv(gym.Env):
 				else:
 					pass
 			else:
-				if len(self.floors[self.elevator_pos]) == 0:
+				if len(self.conveyors[self.elevator_pos]) == 0:
 					pass
 				else:
-					self.content = self.floors[self.elevator_pos].pop(0)
+					self.content = self.conveyors[self.elevator_pos].pop(0)
 					self.is_full = True
 
 		self.elevator_pos = max(min(3, self.elevator_pos + (action - 1)), 1)
 
-		if len(self.floors[1]) == 0:
-			waiting1 = 0.
-		else:
-			waiting1 = self.t - self.floors[1][0][0]
+		wt = self.waiting_time
 
-		if len(self.floors[2]) == 0:
-			waiting2 = 0.
-		else:
-			waiting2 = self.t - self.floors[2][0][0]
-		if len(self.floors[3]) == 0:
-			waiting3 = 0.
-		else:
-			waiting3 = self.t - self.floors[3][0][0]
-
-		reward = -(waiting1**2 + waiting2**2 + waiting3**2)
+		reward = -np.sum(wt**2)
 		done = False
 
 		dest = None
@@ -80,9 +70,9 @@ class ElevatorEnv(gym.Env):
 		else:
 			dest = self.content[1]
 
-		self.state = np.array([float(self.is_full), dest, self.elevator_pos, waiting1, waiting2, waiting3])
+		self.state = np.array([float(self.is_full), dest, self.elevator_pos, wt[0], wt[1], wt[2]])
 
-		self.simulate_arrival()
+		self.simulate_arrival()		# Queue update during (t, t + dt]
 
 		return self.state, reward, done, {}
 
@@ -95,13 +85,15 @@ class ElevatorEnv(gym.Env):
 
 		self.content = None
 
-		self.floors = {1: [], 2: [], 3: []}
+		self.conveyors = {1: [], 2: [], 3: []}
+
+		# self.floors = {1: ConveyorBelt(), 2: ConveyorBelt(), 3: ConveyorBelt()}
 		self.state = np.array([0., 0, self.elevator_pos, 0., 0., 0.])
 		return self.state
 
 	def render(self, mode='human'):
 		print('elapsed time = {:.0f} sec'.format(60. * self.t))
-		print('{} wafers have arrived'.format(self._BEGIN))
+		print('{} wafers have arrived ({} newly added)'.format(self._BEGIN, self.newly_added))
 		for i in range(3, 0, -1):
 			print('Floor{} | '.format(i), end='')
 
@@ -115,9 +107,9 @@ class ElevatorEnv(gym.Env):
 			else:
 				print('   ', end='')
 
-			print('| {:.1f}s |'.format(60 * (self.t - self.floors[i][0][0])), end='')
+			print('| {:.1f}s [{:<3}]'.format(60 * (self.waiting_time[i - 1]), len(self.conveyors[i])), end='')
 
-			print('|'.format(i), len(self.floors[i]) * '*')
+			print('|'.format(i), len(self.conveyors[i]) * '*')
 		print('\n')
 		return
 
@@ -130,16 +122,31 @@ class ElevatorEnv(gym.Env):
 			else:
 				break
 
+		self.newly_added = self._END - self._BEGIN
+
 		for idx in range(self._BEGIN, self._END):
 			cmd_t = self.cmd_time[idx]
 			depart = self.departure[idx]
 			to = self.destination[idx]
-			self.floors[depart].append((cmd_t, to))		# add load to the queue
+			self.conveyors[depart].append((cmd_t, to))		# add load to the queue
 
 		self.t += self.dt
 		self._BEGIN = self._END
 
 		return
+
+	@property
+	def waiting_time(self):
+		wt = np.zeros(3)
+		for i in range(3):
+
+			if len(self.conveyors[i + 1]) == 0:
+				wt[i] = 0.
+			else:
+				wt[i] = self.t - self.conveyors[i + 1][0][0]
+
+		return wt
+
 
 if __name__ == '__main__':
 	"""
@@ -158,7 +165,7 @@ if __name__ == '__main__':
 
 	env.reset()
 
-	for i in range(100):
-		action = np.random.choice(4)
-		_, _, _, _ = env.step(action)
+	for _ in range(100):
+		a = np.random.choice(4)
+		_, _, _, _ = env.step(a)
 		env.render()
