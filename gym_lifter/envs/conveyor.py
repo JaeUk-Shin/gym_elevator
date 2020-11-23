@@ -1,9 +1,13 @@
+from gym_lifter.envs.wafer import Wafer
+from typing import List
+
+
 class ConveyorBelt:
     def __init__(self):
         self._MAX_CAPACITY = 200
         self._QUEUE_LEN = 0
 
-        self._QUEUE = []
+        self._QUEUE: List[Wafer] = []   # all elements of the queue must be Wafer objects
         return
 
     def push(self, wafer):
@@ -34,24 +38,10 @@ class ConveyorBelt:
         assert self._QUEUE_LEN > 0
         return self._QUEUE[0].destination
 
+    @property
+    def is_empty(self):
+        return True if self._QUEUE_LEN == 0 else False
+
     def __len__(self):
         return self._QUEUE_LEN
 
-
-class Wafer:
-    def __init__(self, cmd_t, origin, destination):
-        self._CMD_TIME = cmd_t
-        self._FROM = origin
-        self._TO = destination
-
-    @property
-    def cmd_time(self):
-        return self._CMD_TIME
-
-    @property
-    def origin(self):
-        return self._FROM
-
-    @property
-    def destination(self):
-        return self._TO

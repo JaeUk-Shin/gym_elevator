@@ -2,8 +2,8 @@ from gym.envs.registration import register
 
 
 register(
-    id='Elevator-v0',
-    entry_point='gym_elevator.envs:ElevatorEnv',
+    id='Lifter-v0',
+    entry_point='gym_lifter.envs:LifterEnv',
     max_episode_steps=100,
 )
 
