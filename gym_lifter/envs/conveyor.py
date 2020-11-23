@@ -21,17 +21,13 @@ class ConveyorBelt:
 
     def pop(self):
         assert self._QUEUE_LEN > 0
-
         wafer = self._QUEUE.pop(0)
         self._QUEUE_LEN -= 1
         return wafer
 
     @property
     def cmd_time(self):
-        if self._QUEUE_LEN == 0:
-            return 0
-        else:
-            return self._QUEUE[0].cmd_time
+        return self._QUEUE[0].cmd_time if self._QUEUE_LEN > 0 else 0.
 
     @property
     def destination(self):
