@@ -19,6 +19,9 @@ class LifterEnv(gym.Env):
 		self.num_data = self.data_cmd.shape[0]		# number of total wafers arrived during the episode
 		self.newly_added = None
 
+		self._BEGIN = None
+		self._END = None
+
 		# information relevant to rack master
 		self.content: Optional[Wafer] = None		# object of class Wafer will be assigned
 		self.lifter_position = None
@@ -29,22 +32,17 @@ class LifterEnv(gym.Env):
 		self.t = None
 		self.dt = 0.15
 
-		self._BEGIN = None
-		self._END = None
-
 		self.conveyors: Dict[int, ConveyorBelt] = {}		# family of InConveyors labelled by their floors
 		# self.conveyors: Dict[Tuple[int, int, int], ConveyorBelt] = {}		# TODO : to be extended to multi-layer case
 
 		self._STATE_DIM = 3 + self._NUM_FLOORS
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._STATE_DIM,), dtype=np.float)
-
 		########################
 		# action 0 : DOWN(-1)  #
 		# action 1 : STAY(0)   #
 		# action 2 : UP(+1)    #
 		########################
 		self.action_space = gym.spaces.Discrete(3)
-
 		self.state = None
 
 		return
@@ -93,7 +91,7 @@ class LifterEnv(gym.Env):
 		self.conveyors = {}			# maps each floor number to the corresponding conveyor belt
 		for floor in range(1, self._NUM_FLOORS + 1):
 			self.conveyors[floor] = ConveyorBelt()
-		self.state = np.zeros(3 + self._NUM_FLOORS,)
+		self.state = np.zeros(self._STATE_DIM)
 		self.state[2] = self.lifter_position
 
 		return self.state
