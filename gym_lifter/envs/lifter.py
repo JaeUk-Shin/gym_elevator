@@ -24,7 +24,6 @@ class LifterEnv(gym.Env):
 		self._END = None
 
 		# information relevant to rack master
-		self.content: Optional[Wafer] = None		# object of class Wafer will be assigned or None if it is empty
 		self.rack_position = None
 
 		self.rack = Rack()
@@ -39,13 +38,13 @@ class LifterEnv(gym.Env):
 
 		self._STATE_DIM = 4 + 2 * self._NUM_FLOORS
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._STATE_DIM,), dtype=np.float)
-		########################
-		# action 0 : DOWN(-1)  #
-		# action 1 : UP(+1)  #
-		# action 2 : STAY, LOAD LOWER    #
-		# action 3 : STAY, LOAD UPPER
-		# action 4 : STAY, LOAD BOTH
-		########################
+		###############################
+		# action 0 : DOWN(-1)         #
+		# action 1 : UP(+1)           #
+		# action 2 : STAY, LOAD LOWER #
+		# action 3 : STAY, LOAD UPPER #
+		# action 4 : STAY, LOAD BOTH  #
+		###############################
 		# TODO : add actions
 		self.action_space = gym.spaces.Discrete(5)
 		self.state = None
@@ -57,52 +56,23 @@ class LifterEnv(gym.Env):
 		assert self.action_space.contains(action)
 		if action > 1:
 			# if the lifter stops, load / release the wafer, or just stay
-			# logic for release
 			# always release first, and then load or do something else
-			if self.rack.is_lower_loaded:
-				if self.rack.destination[0] == self.rack_position:
-					# release the wafer
-					self.rack.release_lower_fork()
-				else:
-					pass
-			elif self.rack.is_upper_loaded:
-				if self.rack.destination[1] == self.rack_position + 1:
-					# release the wafer
-					self.rack.release_upper_fork()
-				else:
-					pass
+			if self.rack.destination[0] == self.rack_position:
+				# release the wafer from the lower fork if exists
+				self.rack.release_lower_fork()
+			if self.rack.destination[1] == self.rack_position + 1:
+				# release the wafer from the upper fork if exists
+				self.rack.release_upper_fork()
 
 			# logic for load
 			if action == 2:
-				# lower
-				if self.conveyors[self.rack_position].is_empty:
-					pass
-				else:
-					# load a wafer from the queue
-					self.rack.load_lower(self.conveyors[self.rack_position].pop())
+				self.load_lower()
 			elif action == 3:
-				# upper
-				if self.rack_position + 1 < self._NUM_FLOORS:
-					if self.conveyors[self.rack_position + 1].is_empty:
-						pass
-					else:
-						# load a wafer from the queue
-						self.rack.load_upper(self.conveyors[self.rack_position + 1].pop())
+				self.load_upper()
 			elif action == 4:
-				# both
-				if self.conveyors[self.rack_position].is_empty:
-					pass
-				else:
-					# load a wafer from the queue
-					self.rack.load_lower(self.conveyors[self.rack_position].pop())
-				if self.rack_position + 1 < self._NUM_FLOORS:
-					if self.conveyors[self.rack_position + 1].is_empty:
-						pass
-					else:
-						# load a wafer from the queue
-						self.rack.load_upper(self.conveyors[self.rack_position + 1].pop())
-
+				self.load_lower(), self.load_upper()
 		else:
+			# lifter moves up/ down
 			self.rack_position = max(min(self._NUM_FLOORS, self.rack_position + (2 * action - 1)), 1)
 
 		wt = self.waiting_time
@@ -121,7 +91,6 @@ class LifterEnv(gym.Env):
 		self._END = 0
 		self.t = 0.
 		self.rack_position = np.random.randint(low=1, high=self._NUM_FLOORS + 1)
-		self.content = None
 		# maps each floor number to the corresponding conveyor belt
 		self.conveyors = {floor: ConveyorBelt() for floor in range(1, self._NUM_FLOORS + 1)}
 		self.state = np.zeros(self._STATE_DIM)
@@ -145,6 +114,23 @@ class LifterEnv(gym.Env):
 		self.t += self.dt
 		self._BEGIN = self._END
 
+		return
+
+	def load_lower(self):
+		if self.conveyors[self.rack_position].is_empty:
+			return
+		else:
+			# load a wafer from the queue
+			self.rack.load_lower(self.conveyors[self.rack_position].pop())
+		return
+
+	def load_upper(self):
+		if self.rack_position + 1 < self._NUM_FLOORS:
+			if self.conveyors[self.rack_position + 1].is_empty:
+				return
+			else:
+				# load a wafer from the queue
+				self.rack.load_upper(self.conveyors[self.rack_position + 1].pop())
 		return
 
 	@property

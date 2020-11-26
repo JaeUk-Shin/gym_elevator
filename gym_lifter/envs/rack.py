@@ -12,17 +12,21 @@ class Rack:
         self.is_pod_loaded: bool = False
 
     def release_upper_fork(self):
-        assert self.is_upper_loaded
-        self._UPPER_FORK = None
-        self.is_upper_loaded = False
+        if not self.is_upper_loaded:
+            return
+        else:
+            self._UPPER_FORK = None
+            self.is_upper_loaded = False
         return
 
     def release_lower_fork(self):
-        assert self.is_lower_loaded
-        self._LOWER_FORK = None
-        self.is_lower_loaded = False
-        if self.is_pod_loaded:
-            self.is_pod_loaded = False
+        if not self.is_lower_loaded:
+            return
+        else:
+            self._LOWER_FORK = None
+            self.is_lower_loaded = False
+            if self.is_pod_loaded:
+                self.is_pod_loaded = False
         return
 
     def load_upper(self, wafer: Wafer):
