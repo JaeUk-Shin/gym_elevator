@@ -125,7 +125,7 @@ class LifterEnv(gym.Env):
 		return
 
 	def load_upper(self):
-		if self.rack_position + 1 < self._NUM_FLOORS:
+		if self.rack_position + 1 <= self._NUM_FLOORS:
 			if self.conveyors[self.rack_position + 1].is_empty:
 				return
 			else:
