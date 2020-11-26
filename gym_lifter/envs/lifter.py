@@ -150,7 +150,8 @@ class LifterEnv(gym.Env):
 	def render(self, mode='human'):
 		print('elapsed time = {:.0f} sec'.format(60. * self.t))
 		print('{} wafers have arrived ({} newly added)'.format(self._BEGIN, self.newly_added))
-		for i in range(self._NUM_FLOORS, 0, -1):
+
+		for i in range(self._NUM_FLOORS + 1, 0, -1):
 			print('Floor{} | '.format(i), end='')
 			# denote the position of the elevator & whether elevator is filled
 			if self.rack_position + 1 == i:
@@ -167,9 +168,12 @@ class LifterEnv(gym.Env):
 					print('  ', end='')
 			else:
 				print('   ', end='')
-			print('| {:>5.1f}s [{:<3}]'.format(60 * (self.waiting_time[i - 1]), len(self.conveyors[i])), end='')
-			print('|{}F'.format(self.destination[i - 1]), end='')
-			print('|'.format(i), len(self.conveyors[i]) * '*')
+			if i == self._NUM_FLOORS + 1:
+				print('|')
+			else:
+				print('| {:>5.1f}s [{:<3}]'.format(60 * (self.waiting_time[i - 1]), len(self.conveyors[i])), end='')
+				print('|{}F'.format(self.destination[i - 1]), end='')
+				print('|'.format(i), len(self.conveyors[i]) * '*')
 		print('\n')
 		return
 
