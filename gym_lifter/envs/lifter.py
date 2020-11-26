@@ -36,7 +36,7 @@ class LifterEnv(gym.Env):
 		self.conveyors: Dict[int, ConveyorBelt] = {}		# family of InConveyors labelled by their floors
 		# self.conveyors: Dict[Tuple[int, int, int], ConveyorBelt] = {}		# TODO : to be extended to multi-layer case
 
-		self._STATE_DIM = 4 + 2 * self._NUM_FLOORS
+		self._STATE_DIM = 5 + 2 * self._NUM_FLOORS
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._STATE_DIM,), dtype=np.float)
 		###############################
 		# action 0 : DOWN(-1)         #
@@ -79,9 +79,9 @@ class LifterEnv(gym.Env):
 		reward = -np.sum(wt**2)
 		d1, d2 = self.rack.destination
 		self.state = np.zeros(self._STATE_DIM)
-		self.state[0:4] = float(self.rack.is_lower_loaded), float(d1), float(d2), float(self.rack_position)
-		self.state[4:4 + self._NUM_FLOORS] = wt
-		self.state[4 + self._NUM_FLOORS:] = self.destination
+		self.state[0: 5] = float(self.rack.is_lower_loaded), float(self.rack.is_upper_loaded), float(d1), float(d2), float(self.rack_position)
+		self.state[5: 5 + self._NUM_FLOORS] = wt
+		self.state[5 + self._NUM_FLOORS:] = self.destination
 		self.simulate_arrival()		# Queue update during (t, t + dt]
 
 		return self.state, reward, False, {}
@@ -94,7 +94,7 @@ class LifterEnv(gym.Env):
 		# maps each floor number to the corresponding conveyor belt
 		self.conveyors = {floor: ConveyorBelt() for floor in range(1, self._NUM_FLOORS + 1)}
 		self.state = np.zeros(self._STATE_DIM)
-		self.state[3] = self.rack_position
+		self.state[4] = self.rack_position
 
 		return self.state
 
