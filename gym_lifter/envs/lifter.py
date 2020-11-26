@@ -9,13 +9,14 @@ from typing import Optional, Dict, Tuple
 class LifterEnv(gym.Env):
 	def __init__(self):
 		# super(gym.Env, self).__init__()
-		self._NUM_FLOORS = 3
+		self._NUM_FLOORS = 9
 		self._NUM_LAYERS = 3 * 3
 		self._NUM_CONVEYORS = 3 * 3 * 3
 
-		self.data_cmd = np.load(path.join(path.dirname(__file__), "assets/cmd_time.npy"))
-		self.data_from = np.load(path.join(path.dirname(__file__), "assets/departure.npy"))
-		self.data_to = np.load(path.join(path.dirname(__file__), "assets/destination.npy"))
+		self.data_cmd = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_cmd.npy".format(self._NUM_FLOORS)))
+		self.data_from = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_from.npy".format(self._NUM_FLOORS)))
+		self.data_to = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_to.npy".format(self._NUM_FLOORS)))
+		# self.data_is_pod = np.load(path.join(path.dirname(__file__), "assets/data_is_pod.npy"))
 
 		self.num_data = self.data_cmd.shape[0]		# number of total wafers arrived during the episode
 		self.newly_added = None
@@ -37,6 +38,7 @@ class LifterEnv(gym.Env):
 		# self.conveyors: Dict[Tuple[int, int, int], ConveyorBelt] = {}		# TODO : to be extended to multi-layer case
 
 		self._STATE_DIM = 5 + 2 * self._NUM_FLOORS
+		# TODO : take POD into consideration
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._STATE_DIM,), dtype=np.float)
 		###############################
 		# action 0 : DOWN(-1)         #
@@ -152,7 +154,7 @@ class LifterEnv(gym.Env):
 		print('{} wafers have arrived ({} newly added)'.format(self._BEGIN, self.newly_added))
 
 		for i in range(self._NUM_FLOORS + 1, 0, -1):
-			print('Floor{} | '.format(i), end='')
+			print('Floor{:<2} | '.format(i), end='')
 			# denote the position of the elevator & whether elevator is filled
 			if self.rack_position + 1 == i:
 				print('@', end='')
