@@ -13,9 +13,9 @@ class LifterEnv(gym.Env):
 		self._NUM_LAYERS = 3 * 3
 		self._NUM_CONVEYORS = 3 * 3 * 3
 
-		self.data_cmd = np.load(path.join(path.dirname(__file__), "cmd_time.npy"))
-		self.data_from = np.load(path.join(path.dirname(__file__), "departure.npy"))
-		self.data_to = np.load(path.join(path.dirname(__file__), "destination.npy"))
+		self.data_cmd = np.load(path.join(path.dirname(__file__), "assets/cmd_time.npy"))
+		self.data_from = np.load(path.join(path.dirname(__file__), "assets/departure.npy"))
+		self.data_to = np.load(path.join(path.dirname(__file__), "assets/destination.npy"))
 
 		self.num_data = self.data_cmd.shape[0]		# number of total wafers arrived during the episode
 		self.newly_added = None
