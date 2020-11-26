@@ -31,8 +31,7 @@ class ConveyorBelt:
 
     @property
     def destination(self):
-        assert self._QUEUE_LEN > 0
-        return self._QUEUE[0].destination
+        return self._QUEUE[0].destination if self._QUEUE_LEN > 0 else 0
 
     @property
     def is_empty(self):
