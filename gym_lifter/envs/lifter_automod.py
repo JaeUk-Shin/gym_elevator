@@ -1,10 +1,11 @@
 import gym
 import numpy as np
+import os
 from os import path
 from gym_lifter.envs.conveyor import Wafer, ConveyorBelt
 from gym_lifter.envs.rack import Rack
 from typing import Optional, Dict, Tuple
-
+import time
 
 class LifterEnv(gym.Env):
 	def __init__(self):
@@ -48,12 +49,41 @@ class LifterEnv(gym.Env):
 		# action 4 : STAY, LOAD BOTH  #
 		###############################
 		# TODO : add actions
-		self.action_space = gym.spaces.Discrete(5)
+		self.action_space = gym.spaces.Discrete(36)
 		self.state = None
 
 		return
 
 	def step(self, action):
+		assert self.action_space.contains(action)
+		# action : 0 ~ 35 (36 actions in total)
+		# each action is of the form (to what floor, load / unload, upper / lower)
+		floor, remainder = action // 9, action % 9
+		load, fork = remainder // 2, remainder % 2
+
+		# send the action to execute in txt format
+		if os.path.exists('actions.txt'):
+			os.remove('actions.txt')
+		message = open('action.txt', 'w')
+		message.write('{} {} {}'.format(floor, load, fork))
+		message.close()
+
+		while not os.path.isfile('obs.txt'):
+			# TODO : I think this is not a good idea
+			pass
+		rack_position = floor + (fork + 1) // 2
+		obs_file = open('obs.txt', 'r')
+		obs_list = obs_file.read().split()
+		obs_list.append(floor)
+		obs = np.array(obs_list)
+		wt = obs[4:13]
+
+		rew = -np.sum(wt**2)
+
+		return obs, rew, False, {}
+
+
+	def step_tmp(self, action):
 
 		assert self.action_space.contains(action)
 		if action > 1:
@@ -92,11 +122,11 @@ class LifterEnv(gym.Env):
 		self._BEGIN = 0
 		self._END = 0
 		self.t = 0.
-		self.rack_position = np.random.randint(low=1, high=self._NUM_FLOORS + 1)
+		self.rack_position = np.random.randint(low=1, high=self._NUM_FLOORS)
 		# maps each floor number to the corresponding conveyor belt
 		self.conveyors = {floor: ConveyorBelt() for floor in range(1, self._NUM_FLOORS + 1)}
 		self.state = np.zeros(self._STATE_DIM)
-		self.state[4] = self.rack_position
+		self.state[self._STATE_DIM - 1] = self.rack_position
 
 		return self.state
 
