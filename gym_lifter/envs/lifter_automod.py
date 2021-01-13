@@ -4,87 +4,98 @@ import os
 from os import path
 from gym_lifter.envs.conveyor import Wafer, ConveyorBelt
 from gym_lifter.envs.rack import Rack
-from typing import Optional, Dict, Tuple
-import time
+from typing import Dict, List, Any
+from gym_lifter.envs.launch_server import launch_server
 
-class LifterEnv(gym.Env):
+
+class AutomodLifterEnv(gym.Env):
 	def __init__(self):
 		# super(gym.Env, self).__init__()
-		self._NUM_FLOORS = 9
+		self.NUM_FLOORS = 9
+
+		"""
 		self._NUM_LAYERS = 3 * 3
 		self._NUM_CONVEYORS = 3 * 3 * 3
 
-		self.data_cmd = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_cmd.npy".format(self._NUM_FLOORS)))
-		self.data_from = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_from.npy".format(self._NUM_FLOORS)))
-		self.data_to = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_to.npy".format(self._NUM_FLOORS)))
+		self.data_cmd = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_cmd.npy".format(self.NUM_FLOORS)))
+		self.data_from = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_from.npy".format(self.NUM_FLOORS)))
+		self.data_to = np.load(path.join(path.dirname(__file__), "assets/floor{}/data_to.npy".format(self.NUM_FLOORS)))
 		# self.data_is_pod = np.load(path.join(path.dirname(__file__), "assets/data_is_pod.npy"))
 
 		self.num_data = self.data_cmd.shape[0]		# number of total wafers arrived during the episode
 		self.newly_added = None
 
-		self._BEGIN = None
-		self._END = None
-
+		# self._BEGIN = None
+		# self._END = None
+	
 		# information relevant to rack master
 		self.rack_position = None
-
 		self.rack = Rack()
 
 		self.floors = None
-
+		"""
 		self.t = None
-		self.dt = 0.15
+		# self.dt = 0.15
 
 		self.conveyors: Dict[int, ConveyorBelt] = {}		# family of InConveyors labelled by their floors
 		# self.conveyors: Dict[Tuple[int, int, int], ConveyorBelt] = {}		# TODO : to be extended to multi-layer case
 
-		self._STATE_DIM = 5 + 2 * self._NUM_FLOORS
+		self.STATE_DIM = 2 + 2 * self.NUM_FLOORS + 1 + 1
+		################################################################################################################
+		# STATE VARIABLES                                                                                              #
+		# +----------------------------------------------------------------------------------------------------------+ #
+		# | To(Lower) | To(Upper) | Waiting Time(each Conveyor) | To(each Conveyor) | Operating Time | Rack Position | #
+		# +----------------------------------------------------------------------------------------------------------+ #
+		################################################################################################################
 		# TODO : take POD into consideration
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._STATE_DIM,), dtype=np.float)
-		###############################
-		# action 0 : DOWN(-1)         #
-		# action 1 : UP(+1)           #
-		# action 2 : STAY, LOAD LOWER #
-		# action 3 : STAY, LOAD UPPER #
-		# action 4 : STAY, LOAD BOTH  #
-		###############################
-		# TODO : add actions
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self.STATE_DIM,), dtype=np.float)
 		self.action_space = gym.spaces.Discrete(36)
-		self.state = None
+		# self.state = None
+		self.ctrl_pts = [1, 2, 3, 4, 5, 6, 8, 9, 10]
+
+		# create socket to communicate with Automod programs
+		self.socket = launch_server()
 
 		return
 
-	def step(self, action):
-		assert self.action_space.contains(action)
+	def step(self, a: int):
+		assert self.action_space.contains(a)
 		# action : 0 ~ 35 (36 actions in total)
-		# each action is of the form (to what floor, load / unload, upper / lower)
-		floor, remainder = action // 9, action % 9
-		load, fork = remainder // 2, remainder % 2
+		# each action is of the form (to what floor(1, 2, 3, 4, 5, 6, 8, 9, 10), load / unload, upper / lower)
+		floor_id, remainder = a // 4, a % 4
+		destination = self.ctrl_pts[floor_id]
 
+		load, fork = remainder // 2, remainder % 2
+		"""
 		# send the action to execute in txt format
 		if os.path.exists('actions.txt'):
 			os.remove('actions.txt')
 		message = open('action.txt', 'w')
-		message.write('{} {} {}'.format(floor, load, fork))
+		message.write('{} {} {}'.format(destination, load, fork))
 		message.close()
-
+		"""
+		ctrl_signal = ('{} {} {}'.format(destination, load, fork)).encode()
+		self.socket.send(ctrl_signal)
+		"""
 		while not os.path.isfile('obs.txt'):
 			# TODO : I think this is not a good idea
 			pass
-		rack_position = floor + (fork + 1) // 2
 		obs_file = open('obs.txt', 'r')
-		obs_list = obs_file.read().split()
-		obs_list.append(floor)
+		"""
+		obs_data: str = self.socket.recv(8192).decode()		# receive state information from the simulation
+		obs_list: List[Any] = obs_data.split()
+		dt = obs_list[-1]
+		obs_list.append(destination)
 		obs = np.array(obs_list)
-		wt = obs[4:13]
+		wt = obs[2:11]
 
 		rew = -np.sum(wt**2)
+		self.t += dt
 
-		return obs, rew, False, {}
+		return obs, rew, False, {'dt': dt}
 
-
+	"""
 	def step_tmp(self, action):
-
 		assert self.action_space.contains(action)
 		if action > 1:
 			# if the lifter stops, load / release the wafer, or just stay
@@ -117,19 +128,20 @@ class LifterEnv(gym.Env):
 		self.simulate_arrival()		# Queue update during (t, t + dt]
 
 		return self.state, reward, False, {}
+	"""
 
 	def reset(self):
-		self._BEGIN = 0
-		self._END = 0
+		# self._BEGIN = 0
+		# self._END = 0
 		self.t = 0.
-		self.rack_position = np.random.randint(low=1, high=self._NUM_FLOORS)
+		self.rack_position = np.random.randint(low=1, high=self.NUM_FLOORS)
 		# maps each floor number to the corresponding conveyor belt
-		self.conveyors = {floor: ConveyorBelt() for floor in range(1, self._NUM_FLOORS + 1)}
-		self.state = np.zeros(self._STATE_DIM)
-		self.state[self._STATE_DIM - 1] = self.rack_position
 
+		self.state = np.zeros(self.STATE_DIM)
+		self.state[self.STATE_DIM - 1] = self.rack_position
+		# TODO : send a message to Automod program so that it can reset the simulation
 		return self.state
-
+	"""
 	def simulate_arrival(self):
 		# read data for simulation
 		next_t = self.t + self.dt
@@ -208,17 +220,4 @@ class LifterEnv(gym.Env):
 				print('|'.format(i), len(self.conveyors[i]) * '*')
 		print('\n')
 		return
-
-
-if __name__ == '__main__':
-	# test
-	env = LifterEnv()
-	env.reset()
-	reward = 0.
-	for _ in range(100):
-		a = np.random.randint(low=0, high=5)
-		print('action selected = ', a)
-		_, r, _, _ = env.step(a)
-		reward += r
-		env.render()
-	print('reward : {}'.format(reward))
+	"""

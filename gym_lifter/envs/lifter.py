@@ -32,7 +32,7 @@ class LifterEnv(gym.Env):
 		self.floors = None
 
 		self.t = None
-		self.dt = 0.15
+		# self.dt = 0.15
 
 		self.conveyors: Dict[int, ConveyorBelt] = {}		# family of InConveyors labelled by their floors
 		# self.conveyors: Dict[Tuple[int, int, int], ConveyorBelt] = {}		# TODO : to be extended to multi-layer case
@@ -78,7 +78,7 @@ class LifterEnv(gym.Env):
 			self.rack_position = max(min(self._NUM_FLOORS, self.rack_position + (2 * action - 1)), 1)
 
 		wt = self.waiting_time
-		reward = -np.sum(wt**2)
+		r = -np.sum(wt**2)
 		d1, d2 = self.rack.destination
 		self.state = np.zeros(self._STATE_DIM)
 		self.state[0: 5] = float(self.rack.is_lower_loaded), float(self.rack.is_upper_loaded), float(d1), float(d2), float(self.rack_position)
@@ -86,7 +86,7 @@ class LifterEnv(gym.Env):
 		self.state[5 + self._NUM_FLOORS:] = self.destination
 		self.simulate_arrival()		# Queue update during (t, t + dt]
 
-		return self.state, reward, False, {}
+		return self.state, r, False, {}
 
 	def reset(self):
 		self._BEGIN = 0
