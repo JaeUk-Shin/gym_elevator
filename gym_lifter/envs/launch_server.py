@@ -2,7 +2,7 @@ import socket
 
 
 def launch_server():
-    HOST = '127.0.0.1'  # local host used here
+    HOST = '147.46.89.195'
     PORT = 9999
     # SOCK_STREAM : TCP
     # AF_INET : IPv4

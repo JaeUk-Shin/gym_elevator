@@ -4,8 +4,10 @@ import os
 from os import path
 from gym_lifter.envs.conveyor import Wafer, ConveyorBelt
 from gym_lifter.envs.rack import Rack
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Sequence, Union
 from gym_lifter.envs.launch_server import launch_server
+import sys
+import time
 
 
 class AutomodLifterEnv(gym.Env):
@@ -51,48 +53,48 @@ class AutomodLifterEnv(gym.Env):
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self.STATE_DIM,), dtype=np.float)
 		self.action_space = gym.spaces.Discrete(36)
 		# self.state = None
-		self.ctrl_pts = [1, 2, 3, 4, 5, 6, 8, 9, 10]
+		self.ctrl_pts = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 		# create socket to communicate with Automod programs
 		self.socket = launch_server()
+		self.t_record = None
 
+		self.state_bytes = None
+		self.prefix = None
 		return
 
-	def step(self, a: int):
-		assert self.action_space.contains(a)
+	def step(self, action: int):
+		assert self.action_space.contains(action)
 		# action : 0 ~ 35 (36 actions in total)
 		# each action is of the form (to what floor(1, 2, 3, 4, 5, 6, 8, 9, 10), load / unload, upper / lower)
-		floor_id, remainder = a // 4, a % 4
+		floor_id, rem = action // 4, action % 4
 		destination = self.ctrl_pts[floor_id]
 
-		load, fork = remainder // 2, remainder % 2
-		"""
-		# send the action to execute in txt format
-		if os.path.exists('actions.txt'):
-			os.remove('actions.txt')
-		message = open('action.txt', 'w')
-		message.write('{} {} {}'.format(destination, load, fork))
-		message.close()
-		"""
-		ctrl_signal = ('{} {} {}'.format(destination, load, fork)).encode()
-		self.socket.send(ctrl_signal)
-		"""
-		while not os.path.isfile('obs.txt'):
-			# TODO : I think this is not a good idea
-			pass
-		obs_file = open('obs.txt', 'r')
-		"""
-		obs_data: str = self.socket.recv(8192).decode()		# receive state information from the simulation
-		obs_list: List[Any] = obs_data.split()
-		dt = obs_list[-1]
-		obs_list.append(destination)
-		obs = np.array(obs_list)
-		wt = obs[2:11]
+		load, fork = rem // 2, rem % 2
+
+		ctrl_signal: bytes = ('{} {} {} '.format(destination, load, fork)).encode()
+		ctrl_to_send = self.prefix + ctrl_signal + self.state_bytes
+		print('control sent : ', ctrl_signal)
+		print('\n')
+		self.socket.send(ctrl_to_send)
+
+		data: bytes = self.socket.recv(8192)		# receive state information from the simulation
+		self.prefix = data[:2]
+		state_list = self.bytes2list(data)
+		self.state_bytes = ' '.join(state_list[2:]).encode()
+		t_updated = float(state_list[-1])
+		dt = t_updated - self.t_record
+		state_list.append(destination)
+		state = np.array(state_list, dtype='float')
+		print('state received : ', state)
+		print('available actions : ', self.admissible_actions(state, mask=False))
+		print('available actions (in number) : ', [[action // 4 + 1, (action % 4) // 2, (action % 4) % 2] for action in self.admissible_actions(state, mask=False)])
+		wt = state[2:11]
 
 		rew = -np.sum(wt**2)
-		self.t += dt
+		self.t = t_updated
 
-		return obs, rew, False, {'dt': dt}
+		return state, rew, False, {'dt': dt}
 
 	"""
 	def step_tmp(self, action):
@@ -130,17 +132,32 @@ class AutomodLifterEnv(gym.Env):
 		return self.state, reward, False, {}
 	"""
 
+	@staticmethod
+	def bytes2list(data: bytes) -> list:
+		return data[2:].decode().split()[1:]
+
 	def reset(self):
 		# self._BEGIN = 0
 		# self._END = 0
 		self.t = 0.
-		self.rack_position = np.random.randint(low=1, high=self.NUM_FLOORS)
+		rack_position = np.random.randint(low=1, high=self.NUM_FLOORS)
 		# maps each floor number to the corresponding conveyor belt
 
-		self.state = np.zeros(self.STATE_DIM)
-		self.state[self.STATE_DIM - 1] = self.rack_position
+		state = np.zeros(self.STATE_DIM)
+		state[self.STATE_DIM - 2] = rack_position
 		# TODO : send a message to Automod program so that it can reset the simulation
-		return self.state
+		data = self.socket.recv(8192)
+
+		self.prefix: bytes = data[:2]
+		print('prefix : ', self.prefix)
+		state_list = self.bytes2list(data)
+		self.state_bytes = ' '.join(state_list[2:]).encode()
+		self.t_record = float(state_list[-1])
+		state_list.append(8)		# starts at floor 8
+
+		state = np.array(state_list, dtype=float)
+		print('state received : ', state)
+		return state
 	"""
 	def simulate_arrival(self):
 		# read data for simulation
@@ -221,3 +238,47 @@ class AutomodLifterEnv(gym.Env):
 		print('\n')
 		return
 	"""
+
+	@staticmethod
+	def admissible_actions(state, mask: bool = True) -> Union[np.ndarray, Sequence[int]]:
+		"""return a set of admissible actions at a given state"""
+		# unpack state variables
+		lower = int(round(state[0]))
+		upper = int(round(state[1]))
+		wt = state[2:11]					# waiting time of the foremost lot of each queue
+
+		# action set construction
+		action_set = []
+		if lower == 0:						# go to 2F/3F/6F & load the lower fork
+			action_set += [4 * k + 2 for k in range(9) if wt[k] > 0.]
+		elif lower == 2:
+			action_set += [0, 4, 8] 		# go to 2F & unload a lot from the lower fork
+		elif lower == 5:
+			action_set += [12, 16, 20]		# go to 3F & unload a lot from the lower fork
+		elif lower == 9:
+			action_set += [24, 28, 32]		# go to 6F & unload a lot from the lower fork
+
+		if upper == 0:						# go to 2F/3F/6F & load the upper fork
+			action_set += [4 * k + 3 for k in range(9) if wt[k] > 0.]
+		elif upper == 2:
+			action_set += [1, 5, 9]  		# go to 2F & unload a lot from the upper fork
+		elif upper == 5:
+			action_set += [13, 17, 21]  	# go to 3F & unload a lot from the upper fork
+		elif upper == 9:
+			action_set += [25, 29, 33]  	# go to 6F & unload a lot from the upper fork
+		if not mask:
+			return action_set
+		else:
+			mask = np.full(36, -np.inf)		# generate a mask representing the set
+			mask[action_set] = 0.								# 0 if admissible,  -inf else
+
+			return mask
+
+
+if __name__ == '__main__':
+	env = AutomodLifterEnv()
+	s = env.reset()
+	for i in range(100):
+		print('Received : ', s)
+		a = env.action_space.sample()
+		s, r, d, info = env.step(a)
