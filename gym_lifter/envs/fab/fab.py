@@ -52,7 +52,6 @@ class FAB:
         self.end = 0
         self.t = 0.
 
-
     def sim(self, operation: Optional[Tuple[int, int, int]]) -> Dict[str, Any]:
         if operation is None:
             # no rack operation
@@ -127,9 +126,11 @@ class FAB:
         return
 
     def load_arrival_data(self):
-        self.data_cmd = np.load(path.join(path.dirname(__file__), "./assets/data_cmd.npy"))
-        self.data_from = np.load(path.join(path.dirname(__file__), "./assets/data_from.npy"))
-        self.data_to = np.load(path.join(path.dirname(__file__), "./assets/data_to.npy"))
+        scenario = np.random.randint(low=0, high=200)
+        dir_path = 'assets/scenario{}/'.format(scenario)
+        self.data_cmd = np.load(path.join(path.dirname(__file__), dir_path + "data_cmd.npy"))
+        self.data_from = np.load(path.join(path.dirname(__file__), dir_path + "data_from.npy"))
+        self.data_to = np.load(path.join(path.dirname(__file__), dir_path + "data_to.npy"))
         self.num_data = self.data_cmd.shape[0]
 
     def render(self):
