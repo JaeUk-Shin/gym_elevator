@@ -1,13 +1,8 @@
 import gym
 import numpy as np
-import os
-from os import path
-from gym_lifter.envs.conveyor import Wafer, ConveyorBelt
-from gym_lifter.envs.rack import Rack
+from gym_lifter.envs.fab.conveyor import ConveyorBelt
 from typing import Dict, List, Any, Sequence, Union
-from gym_lifter.envs.launch_server import launch_server
-import sys
-import time
+from gym_lifter.envs.network.launch_server import launch_server
 
 
 class AutomodLifterEnv(gym.Env):
@@ -53,7 +48,7 @@ class AutomodLifterEnv(gym.Env):
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self.STATE_DIM,), dtype=np.float)
 		self.action_space = gym.spaces.Discrete(36)
 		# self.state = None
-		self.ctrl_pts = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+		self.ctrl_pts = [1, 2, 3, 4, 5, 6, 8, 9, 10]
 
 		# create socket to communicate with Automod programs
 		self.socket = launch_server()
@@ -61,10 +56,18 @@ class AutomodLifterEnv(gym.Env):
 
 		self.state_bytes = None
 		self.prefix = None
+
+		self.state = None
+
 		return
 
 	def step(self, action: int):
 		assert self.action_space.contains(action)
+
+		print('state received : ', self.state)
+		print('available actions : ', self.action_map(self.state))
+		print('available actions (in number) : ', [[action // 4 + 1, (action % 4) // 2, (action % 4) % 2] for action in self.action_map(self.state)])
+
 		# action : 0 ~ 35 (36 actions in total)
 		# each action is of the form (to what floor(1, 2, 3, 4, 5, 6, 8, 9, 10), load / unload, upper / lower)
 		floor_id, rem = action // 4, action % 4
@@ -85,16 +88,14 @@ class AutomodLifterEnv(gym.Env):
 		t_updated = float(state_list[-1])
 		dt = t_updated - self.t_record
 		state_list.append(destination)
-		state = np.array(state_list, dtype='float')
-		print('state received : ', state)
-		print('available actions : ', self.admissible_actions(state, mask=False))
-		print('available actions (in number) : ', [[action // 4 + 1, (action % 4) // 2, (action % 4) % 2] for action in self.admissible_actions(state, mask=False)])
-		wt = state[2:11]
+		self.state = np.array(state_list, dtype='float')
+
+		wt = self.state[2:11]
 
 		rew = -np.sum(wt**2)
 		self.t = t_updated
 
-		return state, rew, False, {'dt': dt}
+		return self.state, rew, False, {'dt': dt}
 
 	"""
 	def step_tmp(self, action):
@@ -132,6 +133,9 @@ class AutomodLifterEnv(gym.Env):
 		return self.state, reward, False, {}
 	"""
 
+	def render(self, mode='human'):
+		return
+
 	@staticmethod
 	def bytes2list(data: bytes) -> list:
 		return data[2:].decode().split()[1:]
@@ -155,9 +159,9 @@ class AutomodLifterEnv(gym.Env):
 		self.t_record = float(state_list[-1])
 		state_list.append(8)		# starts at floor 8
 
-		state = np.array(state_list, dtype=float)
-		print('state received : ', state)
-		return state
+		self.state = np.array(state_list, dtype=float)
+		print('state received : ', self.state)
+		return self.state
 	"""
 	def simulate_arrival(self):
 		# read data for simulation
@@ -240,7 +244,7 @@ class AutomodLifterEnv(gym.Env):
 	"""
 
 	@staticmethod
-	def admissible_actions(state, mask: bool = True) -> Union[np.ndarray, Sequence[int]]:
+	def action_map(state) -> List[int]:
 		"""return a set of admissible actions at a given state"""
 		# unpack state variables
 		lower = int(round(state[0]))
@@ -249,29 +253,40 @@ class AutomodLifterEnv(gym.Env):
 
 		# action set construction
 		action_set = []
-		if lower == 0:						# go to 2F/3F/6F & load the lower fork
-			action_set += [4 * k + 2 for k in range(9) if wt[k] > 0.]
+		if lower == 0:
+			# go to 2F/3F/6F & load lower
+			action_set += [4 * k + 2 for k in range(8) if wt[k] > 0.]
 		elif lower == 2:
-			action_set += [0, 4, 8] 		# go to 2F & unload a lot from the lower fork
+			# go to 2F & unload lot from lower
+			action_set += [4]
 		elif lower == 5:
-			action_set += [12, 16, 20]		# go to 3F & unload a lot from the lower fork
+			# go to 3F & unload lot from lower
+			action_set += [16]
 		elif lower == 9:
-			action_set += [24, 28, 32]		# go to 6F & unload a lot from the lower fork
+			# go to 6F & unload lot from lower
+			action_set += [28]
 
-		if upper == 0:						# go to 2F/3F/6F & load the upper fork
-			action_set += [4 * k + 3 for k in range(9) if wt[k] > 0.]
+		if upper == 0:
+			# go to 2F/3F/6F & load upper
+			action_set += [4 * k + 3 for k in range(1, 9) if wt[k] > 0.]
 		elif upper == 2:
-			action_set += [1, 5, 9]  		# go to 2F & unload a lot from the upper fork
+			# go to 2F & unload lot from upper fork
+			action_set += [5]
 		elif upper == 5:
-			action_set += [13, 17, 21]  	# go to 3F & unload a lot from the upper fork
+			# go to 3F & unload lot from upper
+			action_set += [17]
 		elif upper == 9:
-			action_set += [25, 29, 33]  	# go to 6F & unload a lot from the upper fork
+			# go to 6F & unload lot from upper
+			action_set += [29]
+
 		if not mask:
+			# return set of available actions
 			return action_set
 		else:
-			mask = np.full(36, -np.inf)		# generate a mask representing the set
-			mask[action_set] = 0.								# 0 if admissible,  -inf else
-
+			# generate a mask representing the set
+			mask = np.full(36, -np.inf)
+			# 0 if admissible, -inf else
+			mask[action_set] = 0.
 			return mask
 
 
