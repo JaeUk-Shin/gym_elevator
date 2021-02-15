@@ -33,7 +33,7 @@ class LifterEnv(gym.Env):
 			operation = action2operation[action]
 
 		wt = self.waiting_time
-		rew = -np.sum(wt ** 2) / 3600.
+		rew = -np.sum(wt) / 3600.
 		# operate the FAB
 		info = self.fab.sim(operation)
 
