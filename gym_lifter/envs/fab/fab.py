@@ -61,6 +61,7 @@ class FAB:
         self.load_two = None
         self.unload_two = None
         self.load_sequential = None
+        self.total_amount = None
 
     def reset(self):
         self.rack.reset()
@@ -74,6 +75,7 @@ class FAB:
         # FAB statistics
         self.num_carried = 0
         self.visit_count = np.zeros(10, dtype=int)
+        self.total_amount = np.zeros(7, dtype=int)
         self.load_two = 0
         self.unload_two = 0
         self.load_sequential = 0
@@ -130,7 +132,8 @@ class FAB:
                 'visit_count': self.visit_count,
                 'load_two': self.load_two,
                 'unload_two': self.unload_two,
-                'load_sequential': self.load_sequential
+                'load_sequential': self.load_sequential,
+                'total': self.total_amount
                 }
         return info
 
@@ -151,20 +154,24 @@ class FAB:
             # arrived lots are randomly distributed into several layers
             if self.data_from[i] == 2:
                 self.layers[2].push(wafer)
-
+                self.total_amount[0] += 1
             elif self.data_from[i] == 3:
                 coin = np.random.rand()
                 if coin < .5:
                     self.layers[5].push(wafer)
+                    self.total_amount[2] += 1
                 else:
                     self.layers[6].push(wafer)
+                    self.total_amount[3] += 1
 
             elif self.data_from[i] == 6:
                 coin = np.random.rand()
                 if coin < .5:
                     self.layers[8].push(wafer)
+                    self.total_amount[5] += 1
                 else:
                     self.layers[9].push(wafer)
+                    self.total_amount[6] += 1
         if self.end == self.num_data:
             done = True
         else:
