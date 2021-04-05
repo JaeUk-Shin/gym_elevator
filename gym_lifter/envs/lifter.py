@@ -32,12 +32,19 @@ class LifterEnv(gym.Env):
 		else:
 			operation = action2operation[action]
 
-		wt = self.waiting_time
-		rew = -np.sum(wt) / 3600.
+		if action in [11, 12, 13, 14, 16, 17, 18, 19, 21, 22, 23]:
+			rew = 1
+		elif action in [15, 20, 24]:
+			rew = 2
+		else:
+			rew = 0
+
+		# wt = self.waiting_time
+		# rew = -np.sum(wt) / 3600.
 		# operate the FAB
 		info = self.fab.sim(operation)
-
-		return self.get_obs(), rew, False, info
+		done = info['done']
+		return self.get_obs(), rew, done, info
 
 	def render(self, mode='human'):
 		"""

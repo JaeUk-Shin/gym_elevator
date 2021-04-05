@@ -8,11 +8,16 @@ from os import path
 
 class FAB:
     def __init__(self):
-
         # architecture description
         # family of InConveyors labelled by their floors
         # 7 In-Conveyor C2
         # 2F : L2 L3(POD) / 3F : L1 L2 L3 / 6F : L1(POD) L2 L3
+        # TODO : add operation logger which indicates the following information:
+        # number of total lots arrived in each queue throughout the operation
+        # number of carried lots in each queue throughout the operation & its ratio
+        # visit count of rack master to each queue
+        # occupancy ratio in each floor of rack master
+        # other useful information/statistics of the operation
         self.rack = Rack()
         self.floors = [2, 3, 6]
         # label assigned to each conveyor belt
@@ -27,6 +32,19 @@ class FAB:
                           5: (5, 6), 6: (6, None), 7: (None, 7), 8: (7, 8), 9: (8, 9)}
         self.pos2floor = [2, 2, 2, 3, 3, 3, 3, 6, 6, 6]  # convert control point to floor
 
+        # travel time of the rack master between two floors
+        # d[i, j] = time consumed for rack master to move from (ctrl pt i) to (ctrl pt j)
+        self.distance_matrix = np.array([[0.,   2.5,  3.4,  6.87, 6.94, 7.01, 7.08, 8.85, 8.9,  8.96],
+                                         [2.5,  0.,   2.5,  6.79, 6.87, 6.94, 7.01, 8.79, 8.85, 8.9],
+                                         [3.4,  2.5,  0.,   6.72, 6.79, 6.87, 6.94, 8.73, 8.79, 8.85],
+                                         [6.87, 6.79, 6.72, 0.,   2.5,  3.4,  4.02, 5.03, 5.11, 5.19],
+                                         [6.94, 6.87, 6.79, 2.5,  0.,   2.5,  3.4,  4.95, 5.03, 5.11],
+                                         [7.01, 6.94, 6.87, 3.4,  2.5,  0.,   2.5,  4.87, 4.95, 5.03],
+                                         [7.08, 7.01, 6.94, 4.02, 3.4,  2.5,  0.,   4.80, 4.87, 4.95],
+                                         [8.85, 8.79, 8.73, 5.03, 4.95, 4.87, 4.80, 0.,   2.5,  3.4],
+                                         [8.9,  8.85, 8.79, 5.11, 5.03, 4.95, 4.87, 2.5,  0.,   2.5],
+                                         [8.96, 8.9,  8.85, 5.19, 5.11, 5.03, 4.95, 3.4,  2.5,  0.]])
+
         self.rack_pos = None
 
         self.data_cmd = None
@@ -36,10 +54,13 @@ class FAB:
         self.num_added = None
         self.end = None
         self.t = None
-        self.t_unit = 5.5
-
+        self.t_unit = 6
+        self.visit_count = None
         # statistics
         self.num_carried = None
+        self.load_two = None
+        self.unload_two = None
+        self.load_sequential = None
 
     def reset(self):
         self.rack.reset()
@@ -47,24 +68,33 @@ class FAB:
         for conveyor in self.layers.values():
             conveyor.reset()
         self.load_arrival_data()
-
-        self.num_carried = 0
         self.end = 0
         self.t = 0.
 
+        # FAB statistics
+        self.num_carried = 0
+        self.visit_count = np.zeros(10, dtype=int)
+        self.load_two = 0
+        self.unload_two = 0
+        self.load_sequential = 0
+
     def sim(self, operation: Optional[Tuple[int, int, int]]) -> Dict[str, Any]:
+        self.visit_count[self.rack_pos] += 1
         if operation is None:
             # no rack operation
-            operation_time = 2.5
+            operation_time = 8.
         else:
             pos, low_up, load_unload = operation
             # operation : move to the desired position -> load or unload
-            operation_time = np.abs(pos - self.rack_pos) * 2.5 + 3.  # travel_t + loading/unloading_t
+            # travel_t + loading/unloading_t
+            operation_time = self.distance_matrix[pos, self.rack_pos] + 3.
             self.rack_pos = pos
 
             if low_up == 0:
                 if load_unload == 0:
                     self.load_lower()
+                    if self.rack.is_upper_loaded:
+                        self.load_sequential += 1
                 elif load_unload == 1:
                     assert self.rack.destination[0] == self.pos2floor[self.rack_pos]
                     self.num_carried += 1
@@ -72,6 +102,8 @@ class FAB:
             elif low_up == 1:
                 if load_unload == 0:
                     self.load_upper()
+                    if self.rack.is_lower_loaded:
+                        self.load_sequential += 1
                 elif load_unload == 1:
                     assert self.rack.destination[1] == self.pos2floor[self.rack_pos]
                     self.num_carried += 1
@@ -79,15 +111,27 @@ class FAB:
             elif low_up == 2:
                 if load_unload == 0:
                     self.load_lower(), self.load_upper()
+                    self.load_two += 1
                 elif load_unload == 1:
                     assert self.rack.destination[0] == self.pos2floor[self.rack_pos]
                     assert self.rack.destination[1] == self.pos2floor[self.rack_pos]
                     self.rack.release_lower_fork(), self.rack.release_upper_fork()
                     self.num_carried += 2
-        self.sim_arrival(dt=operation_time)
-        info = {'dt': operation_time / self.t_unit,
+                    self.unload_two += 1
+        # simulation of lots arrival
+        # performed by reading the simulation data
+        done = self.sim_arrival(dt=operation_time)
+        info = {
+                'dt': operation_time / self.t_unit,
                 'carried': self.num_carried,
-                'elapsed time': self.elapsed_time / self.t_unit}
+                'elapsed time': self.elapsed_time / self.t_unit,
+                'waiting quantity': self.waiting_quantity,
+                'done': done,
+                'visit_count': self.visit_count,
+                'load_two': self.load_two,
+                'unload_two': self.unload_two,
+                'load_sequential': self.load_sequential
+                }
         return info
 
     def sim_arrival(self, dt: float):
@@ -121,9 +165,12 @@ class FAB:
                     self.layers[8].push(wafer)
                 else:
                     self.layers[9].push(wafer)
-
+        if self.end == self.num_data:
+            done = True
+        else:
+            done = False
         self.t = next_t
-        return
+        return done
 
     def load_arrival_data(self):
         scenario = np.random.randint(low=0, high=200)
@@ -184,3 +231,7 @@ class FAB:
     @property
     def num_lots(self):
         return [(label, conveyor.QUEUE_LEN) for label, conveyor in self.layers.items()]
+
+    @property
+    def waiting_quantity(self):
+        return [conveyor.QUEUE_LEN for conveyor in self.layers.values()]

@@ -53,7 +53,7 @@ class AutomodLifterEnv(gym.Env):
 		# create socket to communicate with Automod programs
 		self.socket = launch_server()
 		self.t_record = None
-
+		self.counter = 0
 		self.state_bytes = None
 		self.prefix = None
 
@@ -76,7 +76,12 @@ class AutomodLifterEnv(gym.Env):
 		load, fork = rem // 2, rem % 2
 
 		ctrl_signal: bytes = ('{} {} {} '.format(destination, load, fork)).encode()
+
+		if self.counter == 0:
+			ctrl_signal = ('{} {} {} '.format(9, 1, 1)).encode()
+
 		ctrl_to_send = self.prefix + ctrl_signal + self.state_bytes
+
 		print('control sent : ', ctrl_signal)
 		print('\n')
 		self.socket.send(ctrl_to_send)
@@ -94,7 +99,7 @@ class AutomodLifterEnv(gym.Env):
 
 		rew = -np.sum(wt**2)
 		self.t = t_updated
-
+		self.counter += 1
 		return self.state, rew, False, {'dt': dt}
 
 	"""
@@ -144,6 +149,7 @@ class AutomodLifterEnv(gym.Env):
 		# self._BEGIN = 0
 		# self._END = 0
 		self.t = 0.
+		self.counter = 0
 		rack_position = np.random.randint(low=1, high=self.NUM_FLOORS)
 		# maps each floor number to the corresponding conveyor belt
 
@@ -279,15 +285,7 @@ class AutomodLifterEnv(gym.Env):
 			# go to 6F & unload lot from upper
 			action_set += [29]
 
-		if not mask:
-			# return set of available actions
-			return action_set
-		else:
-			# generate a mask representing the set
-			mask = np.full(36, -np.inf)
-			# 0 if admissible, -inf else
-			mask[action_set] = 0.
-			return mask
+		return list(set(action_set))
 
 
 if __name__ == '__main__':
