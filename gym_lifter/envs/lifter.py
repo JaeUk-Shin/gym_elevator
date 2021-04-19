@@ -5,7 +5,6 @@ from gym_lifter.envs.fab.fab import FAB
 
 
 class LifterEnv(gym.Env):
-	# TODO : modularize a FAB to keep the code simple & readable
 	def __init__(self):
 		# super(gym.Env, self).__init__()
 
@@ -80,12 +79,14 @@ class LifterEnv(gym.Env):
 
 	def get_obs(self) -> np.ndarray:
 		# encode the current state into a point in $\mathbb{R}^n$ (n : state space dimension)
-		normalized_pos = self.rack_pos / 9.
+		rpos = self.rack_pos / 9.
 		rack_flr = self.pos_to_flr[self.rack_pos]
 		lower_to, upper_to = self.rack_destination
 		rack_info = np.array(
-			[normalized_pos, float(self.is_pod_loaded), (lower_to - rack_flr) / 4., (upper_to - rack_flr) / 4.])
+			[rpos, float(self.is_pod_loaded), (lower_to - rack_flr) / 4., (upper_to - rack_flr) / 4.])
+		# rack_info = np.array([rpos, float(self.is_pod_loaded), lower_to / 6., upper_to / 6.])
 		obs = np.concatenate([rack_info, self.travel_distance, self.normalized_wt])
+		# obs = np.concatenate([rack_info, np.array(self.destination) / 6., np.array(self.waiting_quantity) / 30.])
 		return obs
 
 	@staticmethod
@@ -120,16 +121,6 @@ class LifterEnv(gym.Env):
 	def travel_distance(self):
 		return self.fab.travel_distance
 
-
-if __name__ == '__main__':
-	# test
-	env = LifterEnv()
-	env.reset()
-	reward = 0.
-	for _ in range(100):
-		a = np.random.randint(low=0, high=5)
-		print('action selected = ', a)
-		_, r, _, _ = env.step(a)
-		reward += r
-		env.render()
-	print('reward : {}'.format(reward))
+	@property
+	def waiting_quantity(self):
+		return self.fab.waiting_quantity
