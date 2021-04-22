@@ -194,7 +194,7 @@ class FAB:
 
     def load_arrival_data(self):
         scenario = np.random.randint(low=0, high=200)
-        dir_path = 'assets/scenario{}/'.format(scenario)
+        dir_path = 'assets/half_hr/scenario{}/'.format(scenario)
         self.data_cmd = np.load(path.join(path.dirname(__file__), dir_path + "data_cmd.npy"))
         self.data_from = np.load(path.join(path.dirname(__file__), dir_path + "data_from.npy"))
         self.data_to = np.load(path.join(path.dirname(__file__), dir_path + "data_to.npy"))
