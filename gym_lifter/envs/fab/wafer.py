@@ -14,7 +14,7 @@ class Wafer:
         return self.FROM
 
     @property
-    def destination(self):
+    def destination(self) -> int:
         return self.TO
 
     @property

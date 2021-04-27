@@ -6,7 +6,7 @@ from typing import Dict, Tuple, Optional, Any, List
 from os import path
 
 
-class FAB:
+class DiscreteFAB:
     def __init__(self, mode='day'):
         # architecture description
         # family of InConveyors labelled by their floors
@@ -27,7 +27,7 @@ class FAB:
         self.layers: Dict[int, ConveyorBelt] = {
             label: ConveyorBelt(capacity=self.capacities[i]) for i, label in enumerate(self.labels)
         }
-
+        self.dt = 3.
         # label -> (floor, layer)
         self.label_decoder = {2: (2, 2), 3: (2, 3), 5: (3, 2), 6: (3, 3), 7: (6, 1), 8: (6, 2), 9: (6, 3)}
         self.label2floor = {label: self.label_decoder[label][0] for label in self.labels}
@@ -49,7 +49,7 @@ class FAB:
                                          [8.9,  8.85, 8.79, 5.11, 5.03, 4.95, 4.87, 2.5,  0.,   2.5],
                                          [8.96, 8.9,  8.85, 5.19, 5.11, 5.03, 4.95, 3.4,  2.5,  0.]])
         """
-
+        """
         self.distance_matrix = np.array([[0.,   2.5,  3.4,  4.95, 5.03, 5.11, 5.19, 8.85, 8.9,  8.96],
                                          [2.5,  0.,   2.5,  4.87, 4.95, 5.03, 5.11, 8.79, 8.85, 8.9],
                                          [3.4,  2.5,  0.,   4.8,  4.87, 4.95, 5.03, 8.73, 8.79, 8.85],
@@ -60,7 +60,7 @@ class FAB:
                                          [8.85, 8.79, 8.73, 6.94, 6.87, 6.79, 6.72, 0.,   2.5,  3.4],
                                          [8.9,  8.85, 8.79, 7.01, 6.94, 6.87, 6.79, 2.5,  0.,   2.5],
                                          [8.96, 8.9,  8.85, 7.08, 7.01, 6.94, 6.87, 3.4,  2.5,  0.]])
-
+        """
         self.rack_pos = None
         self.mode = mode
         self.data_cmd = None
@@ -79,6 +79,9 @@ class FAB:
         self.load_sequential = None
         self.total_amount = None
 
+        self.low_up = [None, None, 0, 1, 2, 0, 1, 2]
+        self.load_unload = [None, None, 0, 0, 0, 1, 1, 1]
+
     def reset(self):
         self.rack.reset()
         self.rack_pos = np.random.randint(low=0, high=10)
@@ -96,17 +99,24 @@ class FAB:
         self.unload_two = 0
         self.load_sequential = 0
 
-    def sim(self, operation: Optional[Tuple[int, int, int]]) -> Dict[str, Any]:
+    def sim(self, action: int) -> Dict[str, Any]:
+        # 0 : go up
+        # 1 : go down
+        # 2 : load lower
+        # 3 : load upper
+        # 4 : load both
+        # 5 : unload lower
+        # 6 : unload upper
+        # 7 : unload both
         self.visit_count[self.rack_pos] += 1
-        if operation is None:
-            # no rack operation
-            operation_time = 8.
+        if action == 0:
+            self.rack_pos += 1
+        elif action == 1:
+            self.rack_pos -= 1
         else:
-            pos, low_up, load_unload = operation
-            # operation : move to the desired position -> load or unload
-            # travel_t + loading/unloading_t
-            operation_time = self.distance_matrix[pos, self.rack_pos] + 3.
-            self.rack_pos = pos
+            # action > 2
+            low_up = self.low_up[action]
+            load_unload = self.load_unload[action]
 
             if low_up == 0:
                 if load_unload == 0:
@@ -138,11 +148,9 @@ class FAB:
                     self.unload_two += 1
         # simulation of lots arrival
         # performed by reading the simulation data
-        done = self.sim_arrival(dt=operation_time)
+        done = self.sim_arrival(dt=self.dt)
         info = {
-                'dt': operation_time / self.t_unit,
                 'carried': self.num_carried,
-                'elapsed time': self.elapsed_time / self.t_unit,
                 'waiting quantity': self.waiting_quantity,
                 'done': done,
                 'visit_count': self.visit_count,
@@ -153,7 +161,7 @@ class FAB:
                 }
         return info
 
-    def sim_arrival(self, dt: float):
+    def sim_arrival(self, dt: float) -> bool:
         # read data for simulation
         assert dt > 0.
         begin = self.end

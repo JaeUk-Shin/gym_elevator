@@ -158,3 +158,76 @@ def available_actions(state: np.ndarray) -> List[int]:
 
     return actions
 
+
+def available_actions_no_wt(state: np.ndarray) -> List[int]:
+    actions = []
+    lower_floor = int(round(6. * state[2]))
+    upper_floor = int(round(6. * state[3]))
+
+    if lower_floor == 0:
+        # lower fork is empty
+        lower_occupied = False
+    else:
+        lower_occupied = True
+
+    if upper_floor == 0:
+        # upper fork is empty
+        upper_occupied = False
+    else:
+        upper_occupied = True
+    is_pod = bool(round(state[1]))
+    wq = state[-7:]
+
+    if is_pod:
+        if lower_floor == 2:
+            actions += [27]
+        elif lower_floor == 6:
+            actions += [28]
+    else:
+
+        if lower_occupied:
+            if lower_floor == 2:
+                actions += [11, 13]
+            elif lower_floor == 3:
+                actions += [16, 18]
+            elif lower_floor == 6:
+                actions += [21]
+        else:
+            candidates = [0, 2, 4, 7]
+            corresponding_flrs = [0, 2, 3, 5]
+            actions += [candidates[i] for i in range(4) if wq[corresponding_flrs[i]] > 0]
+
+        if upper_occupied:
+            if upper_floor == 2:
+                actions += [12, 14]
+            elif upper_floor == 3:
+                actions += [17, 19]
+            elif upper_floor == 6:
+                actions += [22, 23]
+        else:
+            candidates = [1, 3, 5, 8, 9]
+            corresponding_flrs = [0, 2, 3, 5, 6]
+            actions += [candidates[i] for i in range(5) if wq[corresponding_flrs[i]] > 0]
+
+        if not (upper_occupied or lower_occupied):
+            if wq[2] > 0 and wq[3] > 0:
+                actions += [6]
+            else:
+                actions += [29]
+            if wq[5] > 0. and wq[6] > 0:
+                actions += [10]
+            else:
+                actions += [29]
+            # TODO : add POD
+
+        if upper_occupied and lower_occupied:
+            if upper_floor == 2 and lower_floor == 2:
+                actions += [15]
+            elif upper_floor == 3 and lower_floor == 3:
+                actions += [20]
+            elif upper_floor == 6 and lower_floor == 6:
+                actions += [24]
+    actions = list(set(actions))        # remove duplicates
+
+    return actions
+

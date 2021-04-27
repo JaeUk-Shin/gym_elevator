@@ -35,7 +35,7 @@ class ConveyorBelt:
         return self.QUEUE[0].cmd_time if self.QUEUE_LEN > 0 else 0.
 
     @property
-    def destination(self):
+    def destination(self) -> int:
         return self.QUEUE[0].destination if self.QUEUE_LEN > 0 else 0
 
     @property
