@@ -105,11 +105,15 @@ def available_actions(state: np.ndarray) -> List[int]:
     is_pod = bool(round(state[1]))
     wt = state[-7:]
 
+    if all([wt[layer] < 0.0001 for layer in range(7)]) and (not lower_occupied) and (not upper_occupied):
+        # if everything is empty, do nothing
+        actions.append(29)
+
     if is_pod:
         if lower_floor == 2:
-            actions += [27]
+            actions.append(27)
         elif lower_floor == 6:
-            actions += [28]
+            actions.append(28)
     else:
 
         if lower_occupied:
@@ -118,7 +122,7 @@ def available_actions(state: np.ndarray) -> List[int]:
             elif lower_floor == 3:
                 actions += [16, 18]
             elif lower_floor == 6:
-                actions += [21]
+                actions.append(21)
         else:
             candidates = [0, 2, 4, 7]
             corresponding_flrs = [0, 2, 3, 5]
@@ -138,23 +142,19 @@ def available_actions(state: np.ndarray) -> List[int]:
 
         if not (upper_occupied or lower_occupied):
             if wt[2] > 0. and wt[3] > 0.:
-                actions += [6]
-            else:
-                actions += [29]
+                actions.append(6)
             if wt[5] > 0. and wt[6] > 0.:
-                actions += [10]
-            else:
-                actions += [29]
+                actions.append(10)
             # TODO : add POD
 
         if upper_occupied and lower_occupied:
             if upper_floor == 2 and lower_floor == 2:
-                actions += [15]
+                actions.append(15)
             elif upper_floor == 3 and lower_floor == 3:
-                actions += [20]
+                actions.append(20)
             elif upper_floor == 6 and lower_floor == 6:
-                actions += [24]
-    actions = list(set(actions))        # remove duplicates
+                actions.append(24)
+    # actions = list(set(actions))        # remove duplicates
 
     return actions
 
@@ -177,12 +177,15 @@ def available_actions_no_wt(state: np.ndarray) -> List[int]:
         upper_occupied = True
     is_pod = bool(round(state[1]))
     wq = state[-7:]
+    if all([wq[layer] == 0 for layer in range(7)]) and (not lower_occupied) and (not upper_occupied):
+        # if everything is empty, do nothing
+        actions.append(29)
 
     if is_pod:
         if lower_floor == 2:
-            actions += [27]
+            actions.append(27)
         elif lower_floor == 6:
-            actions += [28]
+            actions.append(28)
     else:
 
         if lower_occupied:
@@ -191,7 +194,7 @@ def available_actions_no_wt(state: np.ndarray) -> List[int]:
             elif lower_floor == 3:
                 actions += [16, 18]
             elif lower_floor == 6:
-                actions += [21]
+                actions.append(21)
         else:
             candidates = [0, 2, 4, 7]
             corresponding_flrs = [0, 2, 3, 5]
@@ -211,23 +214,19 @@ def available_actions_no_wt(state: np.ndarray) -> List[int]:
 
         if not (upper_occupied or lower_occupied):
             if wq[2] > 0 and wq[3] > 0:
-                actions += [6]
-            else:
-                actions += [29]
+                actions.append(6)
+
             if wq[5] > 0. and wq[6] > 0:
-                actions += [10]
-            else:
-                actions += [29]
+                actions.append(10)
             # TODO : add POD
 
         if upper_occupied and lower_occupied:
             if upper_floor == 2 and lower_floor == 2:
-                actions += [15]
+                actions.append(15)
             elif upper_floor == 3 and lower_floor == 3:
-                actions += [20]
+                actions.append(20)
             elif upper_floor == 6 and lower_floor == 6:
-                actions += [24]
-    actions = list(set(actions))        # remove duplicates
+                actions.append(24)
 
     return actions
 

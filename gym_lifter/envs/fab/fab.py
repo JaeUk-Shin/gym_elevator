@@ -142,8 +142,8 @@ class FAB:
         info = {
                 'dt': operation_time / self.t_unit,
                 'carried': self.num_carried,
-                'elapsed time': self.elapsed_time / self.t_unit,
-                'waiting quantity': self.waiting_quantity,
+                'elapsed_time': self.elapsed_time / self.t_unit,
+                'waiting_quantity': self.waiting_quantity,
                 'done': done,
                 'visit_count': self.visit_count,
                 'load_two': self.load_two,

@@ -19,42 +19,53 @@ sim_time = 86400.               # data for 24 hrs
 # Since N_t >= n iff S_n <= t, we deduce that N_t follows Poisson(\lambda t)
 # Thus, E(N_t) = \lambda t
 # See also Billingsley, 1979.
-lam = num_lots / sim_time
-beta = 1. / lam     # for numpy exponential distribution
 missions = [(2, 3), (3, 2), (3, 6), (6, 3), (2, 6), (6, 2)]
 p23 = 1.5 / 19.
 p36 = 3. / 19.
 p62 = 5. / 19.
 prob = [p23, p23, p36, p36, p62, p62]
-
+num = [num_lots * p23, num_lots * p23,
+       num_lots * p36, num_lots * p36,
+       num_lots * p62, num_lots * p62]
+lam = [n_lots / sim_time for n_lots in num]
+beta = [1. / ell for ell in lam]
 
 num_scenarios = 200     # number of total scenarios
 
 
-for i in tqdm(range(num_scenarios)):
-    cmd_t = []
+for scenario in tqdm(range(num_scenarios)):
+    data = {mission: [] for mission in missions}
     num_arrival = 0
     elapsed_t = 0.
-    while elapsed_t < sim_time:
-        dt = np.random.exponential(beta)
-        elapsed_t += dt
-        cmd_t.append(elapsed_t)
-        num_arrival += 1
+    for i in range(6):
+        mission = missions[i]
+        mission_list = list(mission)
+        b = beta[i]
+        elapsed_t = 0.
 
-    cmd_t.pop()
-    num_arrival -= 1
-    from_to = random.choices(missions, weights=prob, k=num_arrival)
+        while elapsed_t < sim_time:
+            dt = np.random.exponential(b)
+            elapsed_t += dt
+            data[mission].append([elapsed_t] + mission_list)
+            num_arrival += 1
 
-    data_from, data_to = list(zip(*from_to))
-    data_from = list(data_from)
-    data_to = list(data_to)
+        # remove the final one, since its command time exceeds 24:00:00
+        data[mission].pop()
+        data[mission] = np.array(data[mission])
+        num_arrival -= 1
 
-    dir_path = './assets/day/scenario{}/'.format(i)
-    os.mkdir(dir_path)
+    entire_episode = np.concatenate([data[mission] for mission in missions], axis=0)
+    entire_episode = entire_episode[entire_episode[:, 0].argsort()]     # sort entire data by command time
 
-    np.save(dir_path + 'data_cmd.npy'.format(i), np.array(cmd_t))
-    np.save(dir_path + 'data_from.npy'.format(i), np.array(data_from, dtype=np.int))
-    np.save(dir_path + 'data_to.npy'.format(i), np.array(data_to, dtype=np.int))
+    # save generated data
+    data_cmd = entire_episode[:, 0]
+    data_from = entire_episode[:, 1]
+    data_to = entire_episode[:, 2]
 
-    # data = np.array([cmd_t, data_from, data_to]).T
-    # np.savetxt(dir_path + 'data.csv'.format(i), data, delimiter=',')
+    dir_path = './assets/day/scenario{}/'.format(scenario)
+    os.makedirs(dir_path, exist_ok=True)
+
+    np.save(dir_path + 'data_cmd.npy', np.array(data_cmd))
+    np.save(dir_path + 'data_from.npy', np.array(data_from, dtype=np.int))
+    np.save(dir_path + 'data_to.npy', np.array(data_to, dtype=np.int))
+
