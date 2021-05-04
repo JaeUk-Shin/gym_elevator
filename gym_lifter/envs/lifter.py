@@ -81,6 +81,14 @@ class LifterEnv(gym.Env):
 		return
 
 	def get_obs(self) -> np.ndarray:
+		rpos = self.rack_pos / 9.
+		rack_flr = self.pos_to_flr[self.rack_pos]
+		lower_to, upper_to = self.rack_destination
+		rack_info = [rpos, float(self.is_pod_loaded), (lower_to - rack_flr) / 4., (upper_to - rack_flr) / 4.]
+		obs = np.concatenate([rack_info, np.array(self.destination) / 6., np.array(self.waiting_time) / 30.])
+		return obs
+
+	def get_obs_no_wt(self) -> np.ndarray:
 		# encode the current state into a point in $\mathbb{R}^n$ (n : state space dimension)
 		######################################################################################################
 		# rack position | POD | lower destination | upper destination | queue destination | waiting quantity #
@@ -88,14 +96,12 @@ class LifterEnv(gym.Env):
 		rpos = self.rack_pos / 9.
 		rack_flr = self.pos_to_flr[self.rack_pos]
 		lower_to, upper_to = self.rack_destination
-		# rack_info = [rpos, float(self.is_pod_loaded), (lower_to - rack_flr) / 4., (upper_to - rack_flr) / 4.]
 		rack_info = [rpos, float(self.is_pod_loaded), lower_to / 6., upper_to / 6.]
-		# layer_info = self.travel_distance + self.normalized_wt
+
 		destination = [d / 6. for d in self.destination]
 		waiting_quantity = [self.waiting_quantity[i] / self.capacities[i] for i in range(self.num_layers)]
 		layer_info = destination + waiting_quantity
 		obs = np.array(rack_info + layer_info)
-		# obs = np.concatenate([rack_info, np.array(self.destination) / 6., np.array(self.waiting_quantity) / 30.])
 		return obs
 
 	@staticmethod
