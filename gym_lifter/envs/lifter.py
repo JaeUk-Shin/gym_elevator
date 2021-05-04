@@ -46,7 +46,7 @@ class LifterEnv(gym.Env):
 		# operate the FAB
 		info = self.fab.sim(operation)
 		done = info['done']
-		return self.get_obs(), rew, done, info
+		return self.get_obs_no_wt(), rew, done, info
 
 	def render(self, mode='human'):
 		"""
