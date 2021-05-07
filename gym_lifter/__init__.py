@@ -2,8 +2,14 @@ from gym.envs.registration import register
 
 
 register(
-    id='Lifter-v0',
-    entry_point='gym_lifter.envs:LifterEnv',
+    id='LifterQuantity-v0',
+    entry_point='gym_lifter.envs:LifterQuantityEnv',
+    max_episode_steps=5000,
+)
+
+register(
+    id='LifterTime-v0',
+    entry_point='gym_lifter.envs:LifterTimeEnv',
     max_episode_steps=5000,
 )
 

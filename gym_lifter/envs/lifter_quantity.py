@@ -5,7 +5,7 @@ from gym_lifter.envs.action_set import available_actions, action2operation, avai
 from gym_lifter.envs.fab.fab import FAB
 
 
-class LifterEnv(gym.Env):
+class LifterQuantityEnv(gym.Env):
 	def __init__(self):
 		# super(gym.Env, self).__init__()
 
@@ -46,7 +46,7 @@ class LifterEnv(gym.Env):
 		# operate the FAB
 		info = self.fab.sim(operation)
 		done = info['done']
-		return self.get_obs_no_wt(), rew, done, info
+		return self.get_obs(), rew, done, info
 
 	def render(self, mode='human'):
 		"""
@@ -81,20 +81,11 @@ class LifterEnv(gym.Env):
 		return
 
 	def get_obs(self) -> np.ndarray:
-		rpos = self.rack_pos / 9.
-		rack_flr = self.pos_to_flr[self.rack_pos]
-		lower_to, upper_to = self.rack_destination
-		rack_info = [rpos, float(self.is_pod_loaded), (lower_to - rack_flr) / 4., (upper_to - rack_flr) / 4.]
-		obs = np.concatenate([rack_info, np.array(self.destination) / 6., np.array(self.waiting_time) / 30.])
-		return obs
-
-	def get_obs_no_wt(self) -> np.ndarray:
 		# encode the current state into a point in $\mathbb{R}^n$ (n : state space dimension)
 		######################################################################################################
 		# rack position | POD | lower destination | upper destination | queue destination | waiting quantity #
 		######################################################################################################
 		rpos = self.rack_pos / 9.
-		rack_flr = self.pos_to_flr[self.rack_pos]
 		lower_to, upper_to = self.rack_destination
 		rack_info = [rpos, float(self.is_pod_loaded), lower_to / 6., upper_to / 6.]
 
@@ -106,10 +97,6 @@ class LifterEnv(gym.Env):
 
 	@staticmethod
 	def action_map(state) -> List[int]:
-		return available_actions(state)
-
-	@staticmethod
-	def action_map_no_wt(state) -> List[int]:
 		return available_actions_no_wt(state)
 
 	@property
