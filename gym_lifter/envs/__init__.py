@@ -2,3 +2,5 @@ from gym_lifter.envs.lifter_quantity import LifterQuantityEnv
 from gym_lifter.envs.lifter_time import LifterTimeEnv
 from gym_lifter.envs.lifter_discrete import DiscreteLifterEnv
 from gym_lifter.envs.lifter_automod import AutomodLifterEnv
+from gym_lifter.envs.lifter_pod_quantity import LifterPODQuantityEnv
+from gym_lifter.envs.lifter_pod_time import LifterPODTimeEnv

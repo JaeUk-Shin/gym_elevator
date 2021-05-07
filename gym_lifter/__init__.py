@@ -14,6 +14,18 @@ register(
 )
 
 register(
+    id='LifterPODQuantity-v0',
+    entry_point='gym_lifter.envs:LifterPODQuantityEnv',
+    max_episode_steps=5000,
+)
+
+register(
+    id='LifterPODTime-v0',
+    entry_point='gym_lifter.envs:LifterPODTimeEnv',
+    max_episode_steps=5000,
+)
+
+register(
     id='LifterAutomod-v0',
     entry_point='gym_lifter.envs:AutomodLifterEnv',
     max_episode_steps=5000,

@@ -149,7 +149,8 @@ class FAB:
                 'load_two': self.load_two,
                 'unload_two': self.unload_two,
                 'load_sequential': self.load_sequential,
-                'total': self.total_amount
+                'total': self.total_amount,
+                'pod_total': self.total_amount[1] + self.total_amount[4]
                 }
         return info
 

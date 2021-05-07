@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 from typing import List, Tuple
-from gym_lifter.envs.action_set import available_actions, action2operation, available_actions_no_wt
+from gym_lifter.envs.action_set import available_actions, action2operation
 from gym_lifter.envs.fab.fab import FAB
 
 
@@ -48,38 +48,6 @@ class LifterTimeEnv(gym.Env):
         done = info['done']
         return self.get_obs(), rew, done, info
 
-    def render(self, mode='human'):
-        """
-		print('elapsed time = {:.0f} sec'.format(60. * self.t))
-		print('{} wafers have arrived ({} newly added)'.format(self.BEGIN, self.newly_added))
-
-		for i in range(self._NUM_FLOORS + 1, 0, -1):
-			print('Floor{:<2} | '.format(i), end='')
-			# denote the position of the elevator & whether elevator is filled
-			if self.rack_position + 1 == i:
-				print('@', end='')
-				if self.rack.is_upper_loaded:
-					print('* ', end='')
-				else:
-					print('  ', end='')
-			elif self.rack_position == i:
-				print('@', end='')
-				if self.rack.is_lower_loaded:
-					print('* ', end='')
-				else:
-					print('  ', end='')
-			else:
-				print('   ', end='')
-			if i == self._NUM_FLOORS + 1:
-				print('|')
-			else:
-				print('| {:>5.1f}s [{:<3}]'.format(60 * (self.waiting_time[i - 1]), len(self.conveyors[i])), end='')
-				print('|{}F'.format(self.destination[i - 1]), end='')
-				print('|'.format(i), len(self.conveyors[i]) * '*')
-		print('\n')
-		"""
-        return
-
     def get_obs(self) -> np.ndarray:
         rpos = self.rack_pos / 9.
         rack_flr = self.pos_to_flr[self.rack_pos]
@@ -123,3 +91,35 @@ class LifterTimeEnv(gym.Env):
     @property
     def waiting_quantity(self) -> List[int]:
         return self.fab.waiting_quantity
+
+    def render(self, mode='human'):
+        """
+		print('elapsed time = {:.0f} sec'.format(60. * self.t))
+		print('{} wafers have arrived ({} newly added)'.format(self.BEGIN, self.newly_added))
+
+		for i in range(self._NUM_FLOORS + 1, 0, -1):
+			print('Floor{:<2} | '.format(i), end='')
+			# denote the position of the elevator & whether elevator is filled
+			if self.rack_position + 1 == i:
+				print('@', end='')
+				if self.rack.is_upper_loaded:
+					print('* ', end='')
+				else:
+					print('  ', end='')
+			elif self.rack_position == i:
+				print('@', end='')
+				if self.rack.is_lower_loaded:
+					print('* ', end='')
+				else:
+					print('  ', end='')
+			else:
+				print('   ', end='')
+			if i == self._NUM_FLOORS + 1:
+				print('|')
+			else:
+				print('| {:>5.1f}s [{:<3}]'.format(60 * (self.waiting_time[i - 1]), len(self.conveyors[i])), end='')
+				print('|{}F'.format(self.destination[i - 1]), end='')
+				print('|'.format(i), len(self.conveyors[i]) * '*')
+		print('\n')
+		"""
+        return
