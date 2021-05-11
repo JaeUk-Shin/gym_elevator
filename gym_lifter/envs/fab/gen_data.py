@@ -23,12 +23,14 @@ for i in range(num_scenarios):
     data_from = list(data_from)
     data_to = list(data_to)
 
-    dir_path = './assets/scenario{}/'.format(i)
+    dir_path = './assets/day_uniform/scenario{}/'.format(i)
     os.mkdir(dir_path)
 
     np.save(dir_path + 'data_cmd.npy', np.array(cmd_t))
     np.save(dir_path + 'data_from.npy', np.array(data_from, dtype=np.int))
     np.save(dir_path + 'data_to.npy', np.array(data_to, dtype=np.int))
 
+    """
     data = np.array([cmd_t, data_from, data_to]).T
     np.savetxt(dir_path + 'data.csv', data, delimiter=',')
+    """

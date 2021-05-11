@@ -100,6 +100,8 @@ class FAB:
         self.visit_count[self.rack_pos] += 1
         if operation is None:
             # no rack operation
+            # action staying at the position is not chosen unless all facilities are empty
+            # it is free to set its operation time to be small
             operation_time = 8.
         else:
             pos, low_up, load_unload = operation
@@ -200,6 +202,8 @@ class FAB:
         scenario = np.random.randint(low=0, high=200)
         if self.mode == 'day':
             dir_path = 'assets/day/scenario{}/'.format(scenario)
+        elif self.mode == 'day_uniform':
+            dir_path = 'assets/day_uniform/scenario{}/'.format(scenario)
         else:
             dir_path = 'assets/half_hr/scenario{}/'.format(scenario)
         self.data_cmd = np.load(path.join(path.dirname(__file__), dir_path + "data_cmd.npy"))
