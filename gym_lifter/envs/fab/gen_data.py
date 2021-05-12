@@ -4,11 +4,11 @@ import os
 
 # FAB data generation without the existence of POD
 # The
-num_lots = 138
+num_lots = 6624
 num_scenarios = 200
 
 for i in range(num_scenarios):
-    data = 1800. * np.random.rand(num_lots)
+    data = 86400. * np.random.rand(num_lots)
     cmd_t = np.sort(data)
 
     missions = [(2, 3), (3, 2), (3, 6), (6, 3), (2, 6), (6, 2)]

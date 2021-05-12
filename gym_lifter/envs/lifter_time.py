@@ -45,7 +45,7 @@ class LifterTimeEnv(gym.Env):
         # rew = -np.sum(wt) / 3600.
         # operate the FAB
         info = self.fab.sim(operation)
-        done = info['done']
+        done = False
         return self.get_obs(), rew, done, info
 
     def get_obs(self) -> np.ndarray:
@@ -59,6 +59,10 @@ class LifterTimeEnv(gym.Env):
     @staticmethod
     def action_map(state) -> List[int]:
         return available_actions(state)
+
+    @property
+    def operation_log(self):
+        return self.fab.operation_log
 
     @property
     def waiting_time(self):

@@ -144,17 +144,7 @@ class FAB:
         done = self.sim_arrival(dt=operation_time)
         info = {
                 'dt': operation_time / self.t_unit,
-                'carried': self.num_carried,
-                'carried_pod': self.carried_pod,
                 'elapsed_time': self.elapsed_time / self.t_unit,
-                'waiting_quantity': self.waiting_quantity,
-                'done': done,
-                'visit_count': self.visit_count,
-                'load_two': self.load_two,
-                'unload_two': self.unload_two,
-                'load_sequential': self.load_sequential,
-                'total': self.total_amount,
-                'pod_total': self.total_amount[1] + self.total_amount[4]
                 }
         return info
 
@@ -243,6 +233,20 @@ class FAB:
         assert not target_conveyor.is_empty
         self.rack.load_upper(target_conveyor.pop())
         return
+
+    @property
+    def operation_log(self):
+        info = {
+            'carried': self.num_carried,
+            'waiting_quantity': self.waiting_quantity,
+            'visit_count': self.visit_count,
+            'load_two': self.load_two,
+            'unload_two': self.unload_two,
+            'load_sequential': self.load_sequential,
+            'total': self.total_amount,
+            'pod_total': self.total_amount[1] + self.total_amount[4]
+        }
+        return info
 
     @property
     def waiting_time(self):
