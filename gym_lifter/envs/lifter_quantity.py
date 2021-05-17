@@ -9,7 +9,7 @@ class LifterQuantityEnv(gym.Env):
 	def __init__(self):
 		# super(gym.Env, self).__init__()
 
-		self.fab = FAB(mode='day')
+		self.fab = FAB(mode='day_uniform')
 		self.num_layers = self.fab.num_layers
 		self.state_dim = 4 + 2 * self.fab.num_layers
 		# state variables : rack position, pod, lower_to, upper_to, con_i_to's, con_i_wt's

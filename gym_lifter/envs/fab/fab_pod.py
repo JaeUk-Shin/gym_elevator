@@ -7,7 +7,7 @@ from os import path
 
 
 class FAB:
-    def __init__(self):
+    def __init__(self, mode='day'):
         # architecture description
         # family of InConveyors labelled by their floors
         # 7 In-Conveyor C2
@@ -18,6 +18,7 @@ class FAB:
         # visit count of rack master to each queue
         # occupancy ratio in each floor of rack master
         # other useful information/statistics of the operation
+        self.mode = mode
         self.rack = Rack()
         self.floors = [2, 3, 6]
         # label assigned to each conveyor belt
@@ -206,7 +207,10 @@ class FAB:
 
     def load_arrival_data(self):
         scenario = np.random.randint(low=0, high=200)
-        dir_path = 'assets/day_pod/scenario{}/'.format(scenario)
+        if self.mode == 'day':
+            dir_path = 'assets/day_pod/scenario{}/'.format(scenario)
+        elif self.mode == 'day_uniform':
+            dir_path = 'assets/day_pod_uniform/scenario{}/'.format(scenario)
 
         self.data_cmd = np.load(path.join(path.dirname(__file__), dir_path + "data_cmd.npy"))
         self.data_from = np.load(path.join(path.dirname(__file__), dir_path + "data_from.npy"))
