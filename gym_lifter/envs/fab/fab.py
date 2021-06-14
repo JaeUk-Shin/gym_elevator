@@ -4,6 +4,7 @@ from gym_lifter.envs.fab.conveyor import ConveyorBelt
 import numpy as np
 from typing import Dict, Tuple, Optional, Any, List
 from os import path
+import random
 
 
 class FAB:
@@ -23,6 +24,7 @@ class FAB:
         # label assigned to each conveyor belt
         self.labels = [2, 3, 5, 6, 7, 8, 9]
         self.capacities = [3, 2, 4, 2, 6, 3, 2]
+        self.max_capacity = max(self.capacities)
         self.num_layers = len(self.labels)
         self.layers: Dict[int, ConveyorBelt] = {
             label: ConveyorBelt(capacity=self.capacities[i]) for i, label in enumerate(self.labels)
@@ -78,12 +80,53 @@ class FAB:
         self.unload_two = None
         self.load_sequential = None
         self.total_amount = None
+        self.arrival = None
 
-    def reset(self):
+    def reset(self, mode=None):
         self.rack.reset()
-        self.rack_pos = np.random.randint(low=0, high=10)
-        for conveyor in self.layers.values():
-            conveyor.reset()
+        if mode is None:
+            self.arrival = True
+            self.rack_pos = np.random.randint(low=0, high=10)
+            for conveyor in self.layers.values():
+                conveyor.reset()
+        elif mode == 'test2':
+            self.arrival = False
+            for conveyor in self.layers.values():
+                conveyor.reset()
+            self.rack_pos = 5
+            for label, conveyor in self.layers.items():
+                from_floor = self.label2floor[label]
+                if label == 2:
+                    for _ in range(2):
+                        wafer = Wafer(cmd_t=0., origin=from_floor, destination=3)
+                        conveyor.push(wafer)
+                elif label == 5:
+                    wafer = Wafer(cmd_t=0., origin=from_floor, destination=2)
+                    conveyor.push(wafer)
+                elif label == 6:
+                    wafer = Wafer(cmd_t=0., origin=from_floor, destination=6)
+                    conveyor.push(wafer)
+                elif label == 8:
+                    wafer = Wafer(cmd_t=0., origin=from_floor, destination=2)
+                    conveyor.push(wafer)
+        else:
+            self.arrival = False
+            for conveyor in self.layers.values():
+                conveyor.reset()
+            self.rack_pos = 5
+            for label, conveyor in self.layers.items():
+                if label in [2, 5, 6, 8, 9]:
+                    from_floor = self.label2floor[label]
+                    for _ in range(2):
+                        if from_floor == 2:
+                            to_floor = random.choice([3, 6])
+                        elif from_floor == 3:
+                            to_floor = random.choice([6, 2])
+                        else:
+                            to_floor = random.choice([2, 3])
+
+                        wafer = Wafer(cmd_t=0., origin=from_floor, destination=to_floor)
+                        conveyor.push(wafer)
         self.load_arrival_data()
         self.end = 0
         self.t = 0.
@@ -140,7 +183,10 @@ class FAB:
                     self.unload_two += 1
         # simulation of lots arrival
         # performed by reading the simulation data
-        done = self.sim_arrival(dt=operation_time)
+        if self.arrival:
+            done = self.sim_arrival(dt=operation_time)
+        else:
+            self.t += operation_time
         info = {
                 'dt': operation_time / self.t_unit,
                 'elapsed_time': self.elapsed_time / self.t_unit,
@@ -192,8 +238,10 @@ class FAB:
     def load_arrival_data(self):
         scenario = np.random.randint(low=0, high=200)
         if self.mode == 'day':
+            # poisson
             dir_path = 'assets/day/scenario{}/'.format(scenario)
         elif self.mode == 'day_uniform':
+            # uniform
             dir_path = 'assets/day_uniform/scenario{}/'.format(scenario)
         else:
             dir_path = 'assets/half_hr/scenario{}/'.format(scenario)

@@ -9,37 +9,37 @@ class LifterQuantityEnv(gym.Env):
 	def __init__(self):
 		# super(gym.Env, self).__init__()
 
-		self.fab = FAB(mode='day_uniform')
+		self.fab = FAB(mode='day')
 		self.num_layers = self.fab.num_layers
-		self.state_dim = 4 + 2 * self.fab.num_layers
-		# state variables : rack position, pod, lower_to, upper_to, con_i_to's, con_i_wt's
+		self.state_dim = 3 + 2 * self.fab.num_layers
+		# state variables : rack position, lower_to, upper_to, con_i_to's, con_i_wt's
 		# note that operating time is not regarded as a state variable
-		# TODO : take POD into consideration
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_dim,), dtype=np.float)
 		# 24 actions in total
-		self.action_space = gym.spaces.Discrete(30)
+		self.action_space = gym.spaces.Discrete(26)
 		self.state = None
 		self.pos_to_flr = [2, 2, 2, 3, 3, 3, 3, 6, 6, 6]  # convert control point to floor
 		self.capacities = self.fab.capacities
+		self.action2operation = action2operation
 		return
 
-	def reset(self):
-		self.fab.reset()
+	def reset(self, mode=None):
+		self.fab.reset(mode=mode)
 		return self.get_obs()
 
 	def step(self, action: int):
 		assert self.action_space.contains(action)
-		if action == 29:
+		if action == 25:
 			operation = None
 		else:
 			operation = action2operation[action]
 
 		if action in [11, 12, 13, 14, 16, 17, 18, 19, 21, 22, 23]:
-			rew = 1
+			rew = 1.
 		elif action in [15, 20, 24]:
-			rew = 2
+			rew = 2.
 		else:
-			rew = 0
+			rew = 0.
 
 		# wt = self.waiting_time
 		# rew = -np.sum(wt) / 3600.
@@ -55,10 +55,10 @@ class LifterQuantityEnv(gym.Env):
 		######################################################################################################
 		rpos = self.rack_pos / 9.
 		lower_to, upper_to = self.rack_destination
-		rack_info = [rpos, float(self.is_pod_loaded), lower_to / 6., upper_to / 6.]
-
+		# rack_info = [rpos, float(self.is_pod_loaded), lower_to / 6., upper_to / 6.]
+		rack_info = [rpos, lower_to / 6., upper_to / 6.]
 		destination = [d / 6. for d in self.destination]
-		waiting_quantity = [self.waiting_quantity[i] / self.capacities[i] for i in range(self.num_layers)]
+		waiting_quantity = [self.waiting_quantity[i] / self.fab.max_capacity for i in range(self.num_layers)]
 		layer_info = destination + waiting_quantity
 		obs = np.array(rack_info + layer_info)
 		return obs
