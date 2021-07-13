@@ -58,7 +58,7 @@ class LifterQuantityEnv(gym.Env):
 		# rack_info = [rpos, float(self.is_pod_loaded), lower_to / 6., upper_to / 6.]
 		rack_info = [rpos, lower_to / 6., upper_to / 6.]
 		destination = [d / 6. for d in self.destination]
-		waiting_quantity = [self.waiting_quantity[i] / self.fab.max_capacity for i in range(self.num_layers)]
+		waiting_quantity = [(self.waiting_quantity[i] / self.capacities[i]) ** 5 for i in range(self.num_layers)]
 		layer_info = destination + waiting_quantity
 		obs = np.array(rack_info + layer_info)
 		return obs

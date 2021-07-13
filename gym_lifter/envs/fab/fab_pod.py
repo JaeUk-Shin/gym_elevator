@@ -23,8 +23,8 @@ class FAB:
         self.floors = [2, 3, 6]
         # label assigned to each conveyor belt
         self.labels = [2, 3, 5, 6, 7, 8, 9]
-        # self.capacities = [3, 2, 4, 2, 6, 3, 2]
-        self.capacities = [100, 100, 100, 100, 100, 100, 100]
+        self.capacities = [3, 2, 4, 2, 6, 3, 2]
+        self.max_capacity = max(self.capacities)
         self.num_layers = len(self.labels)
         self.layers: Dict[int, ConveyorBelt] = {
             label: ConveyorBelt(capacity=self.capacities[i]) for i, label in enumerate(self.labels)
