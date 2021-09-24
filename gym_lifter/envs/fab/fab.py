@@ -37,6 +37,12 @@ class FAB:
                           5: (5, 6), 6: (6, None), 7: (None, 7), 8: (7, 8), 9: (8, 9)}
         self.pos2floor = [2, 2, 2, 3, 3, 3, 3, 6, 6, 6]  # convert control point to floor
 
+        self.flow_time_log = None
+        self.waiting_time_log = None
+
+        self.loaded_time_log = None
+        self.unloaded_time_log = None
+
         # travel time of the rack master between two floors
         # d[i, j] = time consumed for rack master to move from (ctrl pt i) to (ctrl pt j)
         """
@@ -83,12 +89,15 @@ class FAB:
         self.arrival = None
 
     def reset(self, mode=None):
+        self.flow_time_log = []
+        self.waiting_time_log = []
         self.rack.reset()
         if mode is None:
             self.arrival = True
             self.rack_pos = np.random.randint(low=0, high=10)
             for conveyor in self.layers.values():
                 conveyor.reset()
+
         elif mode == 'test2':
             self.arrival = False
             for conveyor in self.layers.values():
@@ -156,36 +165,45 @@ class FAB:
             if low_up == 0:
                 if load_unload == 0:
                     self.load_lower()
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.lower_fork.cmd_time)
                     if self.rack.is_upper_loaded:
                         self.load_sequential += 1
                 elif load_unload == 1:
                     assert self.rack.destination[0] == self.pos2floor[self.rack_pos]
                     self.num_carried += 1
-                    self.rack.release_lower_fork()
+                    released = self.rack.release_lower_fork()
+                    self.flow_time_log.append(self.t + operation_time - released.cmd_time)
             elif low_up == 1:
                 if load_unload == 0:
                     self.load_upper()
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.upper_fork.cmd_time)
                     if self.rack.is_lower_loaded:
                         self.load_sequential += 1
                 elif load_unload == 1:
                     assert self.rack.destination[1] == self.pos2floor[self.rack_pos]
                     self.num_carried += 1
-                    self.rack.release_upper_fork()
+                    released = self.rack.release_upper_fork()
+                    self.flow_time_log.append(self.t + operation_time - released.cmd_time)
             elif low_up == 2:
                 if load_unload == 0:
                     self.load_lower(), self.load_upper()
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.lower_fork.cmd_time)
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.upper_fork.cmd_time)
                     self.load_two += 1
                 elif load_unload == 1:
                     assert self.rack.destination[0] == self.pos2floor[self.rack_pos]
                     assert self.rack.destination[1] == self.pos2floor[self.rack_pos]
-                    self.rack.release_lower_fork(), self.rack.release_upper_fork()
+                    released1, released2 = self.rack.release_lower_fork(), self.rack.release_upper_fork()
                     self.num_carried += 2
                     self.unload_two += 1
+                    self.flow_time_log.append(self.t + operation_time - released1.cmd_time)
+                    self.flow_time_log.append(self.t + operation_time - released2.cmd_time)
         # simulation of lots arrival
         # performed by reading the simulation data
         if self.arrival:
             done = self.sim_arrival(dt=operation_time)
         else:
+            # just for test purpose
             self.t += operation_time
         info = {
                 'dt': operation_time / self.t_unit,
@@ -272,6 +290,7 @@ class FAB:
 
     @property
     def operation_log(self):
+        self.handle_remaining_lots()
         info = {
             'carried': self.num_carried,
             'waiting_quantity': self.waiting_quantity,
@@ -280,9 +299,18 @@ class FAB:
             'unload_two': self.unload_two,
             'load_sequential': self.load_sequential,
             'total': self.total_amount,
-            'pod_total': self.total_amount[1] + self.total_amount[4]
+            'pod_total': self.total_amount[1] + self.total_amount[4],
+            'average_waiting_time': np.mean(self.waiting_time_log),
+            'max_waiting_time': np.max(self.waiting_time_log),
+            'average_flow_time': np.mean(self.flow_time_log),
+            'max_flow_time': np.max(self.flow_time_log)
         }
         return info
+
+    def handle_remaining_lots(self):
+        for conveyor in self.layers.values():
+            for wafer in conveyor.QUEUE:
+                self.waiting_time_log.append(self.t - wafer.cmd_time)
 
     @property
     def waiting_time(self):

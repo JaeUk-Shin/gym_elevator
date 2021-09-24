@@ -63,6 +63,9 @@ class FAB:
                                          [8.9,  8.85, 8.79, 7.01, 6.94, 6.87, 6.79, 2.5,  0.,   2.5],
                                          [8.96, 8.9,  8.85, 7.08, 7.01, 6.94, 6.87, 3.4,  2.5,  0.]])
 
+
+        self.flow_time_log = None
+        self.waiting_time_log = None
         self.rack_pos = None
         self.data_cmd = None
         self.data_from = None
@@ -83,6 +86,8 @@ class FAB:
         self.total_amount = None
 
     def reset(self):
+        self.flow_time_log = []
+        self.waiting_time_log = []
         self.rack.reset()
         self.rack_pos = np.random.randint(low=0, high=10)
         for conveyor in self.layers.values():
@@ -116,29 +121,37 @@ class FAB:
             if low_up == 0:
                 if load_unload == 0:
                     self.load_lower()
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.lower_fork.cmd_time) 
                     if self.rack.is_upper_loaded:
                         self.load_sequential += 1
                 elif load_unload == 1:
                     assert self.rack.destination[0] == self.pos2floor[self.rack_pos]
                     self.num_carried += 1
-                    self.rack.release_lower_fork()
+                    released = self.rack.release_lower_fork()
+                    self.flow_time_log.append(self.t + operation_time - released.cmd_time)
             elif low_up == 1:
                 if load_unload == 0:
                     self.load_upper()
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.upper_fork.cmd_time)
                     if self.rack.is_lower_loaded:
                         self.load_sequential += 1
                 elif load_unload == 1:
                     assert self.rack.destination[1] == self.pos2floor[self.rack_pos]
                     self.num_carried += 1
-                    self.rack.release_upper_fork()
+                    released = self.rack.release_upper_fork()
+                    self.flow_time_log.append(self.t + operation_time - released.cmd_time)
             elif low_up == 2:
                 if load_unload == 0:
                     self.load_lower(), self.load_upper()
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.lower_fork.cmd_time)
+                    self.waiting_time_log.append(self.t + operation_time - self.rack.upper_fork.cmd_time)
                     self.load_two += 1
                 elif load_unload == 1:
                     assert self.rack.destination[0] == self.pos2floor[self.rack_pos]
                     assert self.rack.destination[1] == self.pos2floor[self.rack_pos]
-                    self.rack.release_lower_fork(), self.rack.release_upper_fork()
+                    released1, released2 = self.rack.release_lower_fork(), self.rack.release_upper_fork()
+                    self.flow_time_log.append(self.t + operation_time - released1.cmd_time)
+                    self.flow_time_log.append(self.t + operation_time - released2.cmd_time)
                     self.num_carried += 2
                     self.unload_two += 1
         # simulation of lots arrival
@@ -249,7 +262,11 @@ class FAB:
             'unload_two': self.unload_two,
             'load_sequential': self.load_sequential,
             'total': self.total_amount,
-            'pod_total': self.total_amount[1] + self.total_amount[4]
+            'pod_total': self.total_amount[1] + self.total_amount[4],
+            'average_waiting_time': np.mean(self.waiting_time_log),
+            'max_waiting_time': np.max(self.waiting_time_log),
+            'average_flow_time': np.mean(self.flow_time_log),
+            'max_flow_time': np.max(self.flow_time_log)
         }
         return info
 

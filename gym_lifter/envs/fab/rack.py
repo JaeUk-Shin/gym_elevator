@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 from gym_lifter.envs.fab.wafer import Wafer
-
+from copy import deepcopy
 
 class Rack:
     def __init__(self):
@@ -10,17 +10,19 @@ class Rack:
         self.is_upper_loaded: bool = False
         self.is_lower_loaded: bool = False
 
-    def release_lower_fork(self):
+    def release_lower_fork(self) -> Wafer:
         assert self.is_lower_loaded
+        wafer_released = deepcopy(self.lower_fork)
         self.lower_fork = None
         self.is_lower_loaded = False
-        return
+        return wafer_released
 
-    def release_upper_fork(self):
+    def release_upper_fork(self) -> Wafer:
         assert self.is_upper_loaded
+        wafer_released = deepcopy(self.upper_fork)
         self.upper_fork = None
         self.is_upper_loaded = False
-        return
+        return wafer_released
 
     def load_lower(self, wafer: Wafer):
         assert not self.is_lower_loaded
