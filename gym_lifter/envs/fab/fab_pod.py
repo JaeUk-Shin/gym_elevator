@@ -459,6 +459,7 @@ class FAB:
             self.screen.blit(text, (700, loc))
         # ---------------------------------------------------------------------------------------------------
         pygame.display.update()
+
         return
 
     def close(self):
