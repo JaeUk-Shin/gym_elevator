@@ -104,8 +104,9 @@ class FAB:
 
         self.screen = None
         self.clock = None
-        self.framerate = None
+        self.framerate = 4
         self.pause = None
+        self.quit = None
 
     def reset(self, mode=None):
         self.flow_time_log = []
@@ -129,8 +130,8 @@ class FAB:
         self.unload_two = 0
         self.load_sequential = 0
 
-        self.framerate = 20
         self.pause = False
+        self.quit = False
 
     def sim(self, operation: Optional[Tuple[int, int, int]]) -> Dict[str, Any]:
         self.command_queue.append((self.t, operation))
@@ -252,6 +253,8 @@ class FAB:
         self.num_data = self.data_cmd.shape[0]
 
     def render(self):
+        if self.quit:
+            return
         capacities = [0, 3, 2, 0, 4, 2, 6, 3, 2]
         conv_pos = [660, 600, 540, 450, 390, 330, 240, 180, 120]
         rm_pos = [540, 480, 420, 390, 330, 270, 210, 180, 120, 60]
@@ -272,6 +275,11 @@ class FAB:
             elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_DOWN:
                 self.framerate *= 0.5
                 self.framerate = max(1, self.framerate)
+            elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
+                pygame.quit()
+                self.screen = None
+                self.quit = True
+                return
 
         while self.pause:
             e = pygame.event.get()
@@ -284,6 +292,11 @@ class FAB:
                 elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_RIGHT:
                     flag = True
                     break
+                elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    self.screen = None
+                    self.quit = True
+                    return
             if flag:
                 break
 
@@ -291,11 +304,14 @@ class FAB:
         self.screen.fill(self.WHITE)
         sysfont = pygame.font.SysFont(name='', size=50)
 
-        # define keyboard inputs
         text = sysfont.render("Rack Master Monitoring Center", True, self.BLACK)
         self.screen.blit(text, (400, 10))
-
+        # define keyboard inputs
         sysfont = pygame.font.SysFont(name='', size=30)
+
+        text = sysfont.render("[Escape] : Quit Visualization", True, self.BLACK)
+        self.screen.blit(text, (260, 740))
+
         text = sysfont.render("[Up Arrow] : Speed x 2", True, self.BLACK)
         self.screen.blit(text, (600, 740))
         text = sysfont.render("[Down Arrow] : Speed  x 0.5", True, self.BLACK)
@@ -327,7 +343,7 @@ class FAB:
         for label in self.labels:
             for i in range(waiting_quantities[label]):
                 pygame.draw.rect(self.screen, (168, 138, 100), [100 + 30 * i, conv_pos[label - 1] - 30, 30, 30])
-                pygame.draw.rect(self.screen, self.BLACK, [100 + 30 * i, conv_pos[label-1] - 30, 30, 30], 1)
+                pygame.draw.rect(self.screen, self.BLACK, [100 + 30 * i, conv_pos[label - 1] - 30, 30, 30], 1)
 
         waiting_destinations = {label: [] for label in self.labels}
         for label in self.labels:
@@ -337,7 +353,7 @@ class FAB:
         for label in self.labels:
             for i in range(waiting_quantities[label]):
                 text = sysfont.render('{}F'.format(waiting_destinations[label][i]), True, self.BLACK)
-                self.screen.blit(text, (105 + 30 * i, conv_pos[label-1] - 20))
+                self.screen.blit(text, (105 + 30 * i, conv_pos[label - 1] - 20))
         # ---------------------------------------------------------------------------------------------------
 
         # --------------------------------------- rack master rendering -------------------------------------
@@ -351,7 +367,6 @@ class FAB:
         # lower fork rendering
         lower_d, upper_d = self.rack_destination
         if lower_d > 0:
-
             pygame.draw.rect(self.screen, (168, 138, 100), [25, pos + 88.5, 30, 30])
             pygame.draw.rect(self.screen, self.BLACK, [25, pos + 88.5, 30, 30], 1)
             text = sysfont.render('{}F'.format(lower_d), True, self.BLACK)
@@ -443,7 +458,6 @@ class FAB:
             self.screen.blit(text, (700, loc))
         # ---------------------------------------------------------------------------------------------------
         pygame.display.update()
-
         return
 
     def close(self):
