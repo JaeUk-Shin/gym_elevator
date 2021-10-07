@@ -3,22 +3,30 @@ from gym_lifter.envs.fab.rack import Rack
 from gym_lifter.envs.fab.conveyor import ConveyorBelt
 import numpy as np
 from typing import Dict, Tuple, Optional, Any, List
+import os
 from os import path
 import random
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+import pygame
+from collections import deque
+from gym_lifter.envs.action_set import operation2str
 
 
 class FAB:
+    # meta data for rendering
+    WHITE = (255, 255, 255)
+    RED = (255, 0, 0)
+    GREEN = (0, 255, 0)
+    BLUE = (0, 0, 255)
+    BLACK = (0, 0, 0)
+    PINK = (255, 96, 208)
+    size = [1200, 800]
+
     def __init__(self, mode='day'):
         # architecture description
         # family of InConveyors labelled by their floors
         # 7 In-Conveyor C2
         # 2F : L2 L3(POD) / 3F : L1 L2 L3 / 6F : L1(POD) L2 L3
-        # TODO : add operation logger which indicates the following information:
-        # number of total lots arrived in each queue throughout the operation
-        # number of carried lots in each queue throughout the operation & its ratio
-        # visit count of rack master to each queue
-        # occupancy ratio in each floor of rack master
-        # other useful information/statistics of the operation
         self.rack = Rack()
         self.floors = [2, 3, 6]
         # label assigned to each conveyor belt
@@ -32,6 +40,9 @@ class FAB:
 
         # label -> (floor, layer)
         self.label_decoder = {2: (2, 2), 3: (2, 3), 5: (3, 2), 6: (3, 3), 7: (6, 1), 8: (6, 2), 9: (6, 3)}
+        self.label2str = {
+            label: '{}F L{}'.format(self.label_decoder[label][0], self.label_decoder[label][1]) for label in self.labels}
+
         self.label2floor = {label: self.label_decoder[label][0] for label in self.labels}
         self.pos2label = {0: (None, 2), 1: (2, 3), 2: (3, None), 3: (None, None), 4: (None, 5),
                           5: (5, 6), 6: (6, None), 7: (None, 7), 8: (7, 8), 9: (8, 9)}
@@ -69,7 +80,7 @@ class FAB:
                                          [8.9,  8.85, 8.79, 7.01, 6.94, 6.87, 6.79, 2.5,  0.,   2.5],
                                          [8.96, 8.9,  8.85, 7.08, 7.01, 6.94, 6.87, 3.4,  2.5,  0.]])
 
-        self.rack_pos = None
+        self.rack_pos = None        # takes value in [0, 10)
         self.mode = mode
         self.data_cmd = None
         self.data_from = None
@@ -88,6 +99,14 @@ class FAB:
         self.total_amount = None
         self.arrival = None
 
+        # attributes for rendering
+        self.command_queue = deque(maxlen=5)    # store 5 latest rack master commands with their execution times
+
+        self.screen = None
+        self.clock = None
+        self.framerate = None
+        self.pause = None
+
     def reset(self, mode=None):
         self.flow_time_log = []
         self.waiting_time_log = []
@@ -98,44 +117,6 @@ class FAB:
             for conveyor in self.layers.values():
                 conveyor.reset()
 
-        elif mode == 'test2':
-            self.arrival = False
-            for conveyor in self.layers.values():
-                conveyor.reset()
-            self.rack_pos = 5
-            for label, conveyor in self.layers.items():
-                from_floor = self.label2floor[label]
-                if label == 2:
-                    for _ in range(2):
-                        wafer = Wafer(cmd_t=0., origin=from_floor, destination=3)
-                        conveyor.push(wafer)
-                elif label == 5:
-                    wafer = Wafer(cmd_t=0., origin=from_floor, destination=2)
-                    conveyor.push(wafer)
-                elif label == 6:
-                    wafer = Wafer(cmd_t=0., origin=from_floor, destination=6)
-                    conveyor.push(wafer)
-                elif label == 8:
-                    wafer = Wafer(cmd_t=0., origin=from_floor, destination=2)
-                    conveyor.push(wafer)
-        else:
-            self.arrival = False
-            for conveyor in self.layers.values():
-                conveyor.reset()
-            self.rack_pos = 5
-            for label, conveyor in self.layers.items():
-                if label in [2, 5, 6, 8, 9]:
-                    from_floor = self.label2floor[label]
-                    for _ in range(2):
-                        if from_floor == 2:
-                            to_floor = random.choice([3, 6])
-                        elif from_floor == 3:
-                            to_floor = random.choice([6, 2])
-                        else:
-                            to_floor = random.choice([2, 3])
-
-                        wafer = Wafer(cmd_t=0., origin=from_floor, destination=to_floor)
-                        conveyor.push(wafer)
         self.load_arrival_data()
         self.end = 0
         self.t = 0.
@@ -148,7 +129,11 @@ class FAB:
         self.unload_two = 0
         self.load_sequential = 0
 
+        self.framerate = 20
+        self.pause = False
+
     def sim(self, operation: Optional[Tuple[int, int, int]]) -> Dict[str, Any]:
+        self.command_queue.append((self.t, operation))
         self.visit_count[self.rack_pos] += 1
         if operation is None:
             # no rack operation
@@ -258,19 +243,212 @@ class FAB:
         if self.mode == 'day':
             # poisson
             dir_path = 'assets/day/scenario{}/'.format(scenario)
-        elif self.mode == 'day_uniform':
+        else:
             # uniform
             dir_path = 'assets/day_uniform/scenario{}/'.format(scenario)
-        else:
-            dir_path = 'assets/half_hr/scenario{}/'.format(scenario)
         self.data_cmd = np.load(path.join(path.dirname(__file__), dir_path + "data_cmd.npy"))
         self.data_from = np.load(path.join(path.dirname(__file__), dir_path + "data_from.npy"))
         self.data_to = np.load(path.join(path.dirname(__file__), dir_path + "data_to.npy"))
         self.num_data = self.data_cmd.shape[0]
 
     def render(self):
+        capacities = [0, 3, 2, 0, 4, 2, 6, 3, 2]
+        conv_pos = [660, 600, 540, 450, 390, 330, 240, 180, 120]
+        rm_pos = [540, 480, 420, 390, 330, 270, 210, 180, 120, 60]
         # TODO
+        if self.screen is None:
+            pygame.init()
+            self.screen = pygame.display.set_mode(self.size)
+            self.clock = pygame.time.Clock()
+
+        e = pygame.event.get()
+        for ev in e:
+            if ev.type == pygame.KEYDOWN and ev.key == pygame.K_SPACE:
+                self.pause = True
+                break
+            elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_UP:
+                self.framerate *= 2.
+                self.framerate = max(1, self.framerate)
+            elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_DOWN:
+                self.framerate *= 0.5
+                self.framerate = max(1, self.framerate)
+
+        while self.pause:
+            e = pygame.event.get()
+            flag = False
+            for ev in e:
+                if ev.type == pygame.KEYDOWN and ev.key == pygame.K_SPACE:
+                    self.pause = False
+                    flag = True
+                    break
+                elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_RIGHT:
+                    flag = True
+                    break
+            if flag:
+                break
+
+        self.clock.tick(self.framerate)
+        self.screen.fill(self.WHITE)
+        sysfont = pygame.font.SysFont(name='', size=50)
+
+        # define keyboard inputs
+        text = sysfont.render("Rack Master Monitoring Center", True, self.BLACK)
+        self.screen.blit(text, (400, 10))
+
+        sysfont = pygame.font.SysFont(name='', size=30)
+        text = sysfont.render("[Up Arrow] : Speed x 2", True, self.BLACK)
+        self.screen.blit(text, (600, 740))
+        text = sysfont.render("[Down Arrow] : Speed  x 0.5", True, self.BLACK)
+        self.screen.blit(text, (600, 770))
+
+        text = sysfont.render("[Space] : Pause/Resume", True, self.BLACK)
+        self.screen.blit(text, (940, 740))
+        text = sysfont.render("[Right Arrow] : 1 Step ", True, self.BLACK)
+        self.screen.blit(text, (940, 770))
+
+        sysfont = pygame.font.SysFont(name='', size=24)
+        # -------------------------------------- conveyor belts rendering -----------------------------------
+        for i, pos in enumerate(conv_pos):
+            floor = 2 if (i < 3) else 6 if (i >= 6) else 3
+            layer = i % 3 + 1
+            # pygame.draw.line(self.screen, self.BLACK, [100, pos], [480, pos], 1)
+            pygame.draw.rect(self.screen, (128, 128, 128), [100, pos, 380, 10])
+            # pygame.draw.line(self.screen, self.BLACK, [100, pos], [100 + 30 * capacities[i], pos], 3)
+            pygame.draw.rect(self.screen, (228, 192, 168), [100, pos, 30 * capacities[i], 15])
+
+            text = sysfont.render("{}F L{}".format(floor, layer), True, self.BLACK)
+            self.screen.blit(text, (440, pos - 20))
+
+        waiting_quantities = {}
+
+        for label in self.labels:
+            waiting_quantities[label] = self.layers[label].QUEUE_LEN
+
+        for label in self.labels:
+            for i in range(waiting_quantities[label]):
+                pygame.draw.rect(self.screen, (168, 138, 100), [100 + 30 * i, conv_pos[label - 1] - 30, 30, 30])
+                pygame.draw.rect(self.screen, self.BLACK, [100 + 30 * i, conv_pos[label-1] - 30, 30, 30], 1)
+
+        waiting_destinations = {label: [] for label in self.labels}
+        for label in self.labels:
+            for lot in self.layers[label].QUEUE:
+                waiting_destinations[label].append(lot.destination)
+
+        for label in self.labels:
+            for i in range(waiting_quantities[label]):
+                text = sysfont.render('{}F'.format(waiting_destinations[label][i]), True, self.BLACK)
+                self.screen.blit(text, (105 + 30 * i, conv_pos[label-1] - 20))
+        # ---------------------------------------------------------------------------------------------------
+
+        # --------------------------------------- rack master rendering -------------------------------------
+
+        pygame.draw.rect(self.screen, (128, 128, 128), [36, 50, 8, 640])
+        pos = rm_pos[self.rack_pos]
+        pygame.draw.rect(self.screen, self.WHITE, [10, pos, 60, 120])
+        pygame.draw.rect(self.screen, self.BLACK, [10, pos, 60, 120], 3)
+        pygame.draw.line(self.screen, self.BLACK, [10, pos + 60], [69, pos + 60], 3)
+
+        # lower fork rendering
+        lower_d, upper_d = self.rack_destination
+        if lower_d > 0:
+
+            pygame.draw.rect(self.screen, (168, 138, 100), [25, pos + 88.5, 30, 30])
+            pygame.draw.rect(self.screen, self.BLACK, [25, pos + 88.5, 30, 30], 1)
+            text = sysfont.render('{}F'.format(lower_d), True, self.BLACK)
+            self.screen.blit(text, (30, pos + 100))
+        # upper fork rendering
+        if upper_d > 0:
+            pygame.draw.rect(self.screen, (168, 138, 100), [25, pos + 29, 30, 30])
+            pygame.draw.rect(self.screen, self.BLACK, [25, pos + 29, 30, 30], 1)
+            text = sysfont.render('{}F'.format(upper_d), True, self.BLACK)
+            self.screen.blit(text, (30, pos + 40))
+        # ---------------------------------------------------------------------------------------------------
+        # ------------------------------------------- operation log -----------------------------------------
+        # <1> elapsed time
+        h = int(self.t // 3600.)
+        m = int(self.t % 3600.) // 60
+        s = self.t % 60.
+
+        loc = 80
+
+        loc += 20
+        text = sysfont.render("Elapsed Time : {:d}h {}m {:.2f}s".format(h, m, s), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+        # <2> carried quantity
+        num_total = sum(self.total_amount)
+        ratio = 100. * self.num_carried / num_total if num_total > 0 else np.NaN
+
+        loc += 20
+        text = sysfont.render("Carried : {} ({:.2f}%)".format(self.num_carried, ratio), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        # <3> total quantity
+        loc += 40
+        text = sysfont.render("Total (POD): {} ({})".format(num_total,
+                                                            self.total_amount[1] + self.total_amount[4]),
+                              True,
+                              self.BLACK
+                              )
+        self.screen.blit(text, (700, loc))
+
+        for i, label in enumerate(self.labels):
+            loc += 20
+            text = sysfont.render("-- {} : {}".format(self.label2str[label], self.total_amount[i]), True, self.BLACK)
+            self.screen.blit(text, (700, loc))
+
+        loc += 40
+        text = sysfont.render("Load_two : {}".format(self.load_two), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        loc += 20
+        text = sysfont.render("Unload_two : {}".format(self.unload_two), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        loc += 40
+        text = sysfont.render("Time Statistics", True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        loc += 20
+        t = np.mean(self.flow_time_log) if len(self.flow_time_log) > 0 else np.nan
+        text = sysfont.render("-- Average Waiting Time : {:.2f}s".format(t), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        loc += 20
+        t = np.max(self.flow_time_log) if len(self.flow_time_log) > 0 else -np.inf
+        text = sysfont.render("-- Max Waiting Time : {:.2f}s".format(t), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        loc += 20
+        t = np.mean(self.flow_time_log) if len(self.flow_time_log) > 0 else np.nan
+        text = sysfont.render("-- Average Flow Time : {:.2f}s".format(t), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        loc += 20
+        t = np.max(self.flow_time_log) if len(self.flow_time_log) > 0 else -np.inf
+        text = sysfont.render("-- Max Flow Time : {:.2f}s".format(t), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+        # ---------------------------------------------------------------------------------------------------
+        # ----------------------------------------- command history -----------------------------------------
+        loc += 40
+        text = sysfont.render("Operation History".format(t), True, self.BLACK)
+        self.screen.blit(text, (700, loc))
+
+        for t, operation in list(self.command_queue):
+            loc += 20
+            description = operation2str[operation]
+            h = int(t // 3600.)
+            m = int(t % 3600.) // 60
+            s = t % 60.
+            text = sysfont.render('({:d}h {}m {:.2f}s) {}'.format(h, m, s, description), True, self.BLACK)
+            self.screen.blit(text, (700, loc))
+        # ---------------------------------------------------------------------------------------------------
+        pygame.display.update()
+
         return
+
+    def close(self):
+        pygame.quit()
+        self.screen = None
 
     def load_lower(self):
         target_label = self.pos2label[self.rack_pos][0]
@@ -347,3 +525,4 @@ class FAB:
     @property
     def waiting_quantity(self) -> List[int]:
         return [conveyor.QUEUE_LEN for conveyor in self.layers.values()]
+

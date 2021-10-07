@@ -76,6 +76,10 @@ action2operation: Dict[int, Tuple[int, int, int]] = {
                     # 28: (8, 0, 1)
                     }
 
+operation2action: Dict[Tuple[int, int, int], int] = {op: a for a, op in action2operation.items()}
+operation2str = {op: action_space_description[a] for op, a in operation2action.items()}
+operation2str[None] = 'STAY'
+
 
 def available_actions(state: np.ndarray) -> List[int]:
     actions = []

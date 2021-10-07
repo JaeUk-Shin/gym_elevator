@@ -2,37 +2,21 @@ from gym.envs.registration import register
 
 
 register(
-    id='LifterQuantity-v0',
-    entry_point='gym_lifter.envs:LifterQuantityEnv',
-    max_episode_steps=5000,
+    id='Lifter-v0',
+    entry_point='gym_lifter.envs:LifterEnv',
+    max_episode_steps=20000,
 )
 
-register(
-    id='LifterTime-v0',
-    entry_point='gym_lifter.envs:LifterTimeEnv',
-    max_episode_steps=5000,
-)
 
 register(
-    id='LifterPODQuantity-v0',
-    entry_point='gym_lifter.envs:LifterPODQuantityEnv',
-    max_episode_steps=5000,
-)
-
-register(
-    id='LifterPODTime-v0',
-    entry_point='gym_lifter.envs:LifterPODTimeEnv',
-    max_episode_steps=5000,
+    id='LifterPOD-v0',
+    entry_point='gym_lifter.envs:LifterPODEnv',
+    max_episode_steps=20000,
 )
 
 register(
     id='LifterAutomod-v0',
     entry_point='gym_lifter.envs:AutomodLifterEnv',
-    max_episode_steps=5000,
+    max_episode_steps=20000,
 )
 
-register(
-    id='DiscreteLifter-v0',
-    entry_point='gym_lifter.envs:DiscreteLifterEnv',
-    max_episode_steps=28800,
-)
