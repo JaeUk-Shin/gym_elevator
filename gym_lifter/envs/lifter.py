@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 from typing import List, Tuple
-from gym_lifter.envs.action_set import action2operation, available_actions_no_wt
+from gym_lifter.fab.envs.action_set import action2operation, available_actions_no_wt
 from gym_lifter.envs.fab.fab import FAB
 
 

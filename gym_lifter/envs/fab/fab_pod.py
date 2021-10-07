@@ -8,7 +8,7 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 from collections import deque
-from gym_lifter.envs.pod_action_set import operation2str
+from gym_lifter.envs.fab.pod_action_set import operation2str
 
 
 class FAB:

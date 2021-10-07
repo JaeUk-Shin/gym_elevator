@@ -9,7 +9,7 @@ import random
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 from collections import deque
-from gym_lifter.envs.action_set import operation2str
+from gym_lifter.envs.fab.action_set import operation2str
 
 
 class FAB:
