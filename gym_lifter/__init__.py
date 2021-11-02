@@ -7,12 +7,18 @@ register(
     max_episode_steps=20000,
 )
 
-
 register(
     id='LifterPOD-v0',
     entry_point='gym_lifter.envs:LifterPODEnv',
     max_episode_steps=20000,
 )
+
+register(
+    id='DiscreteLifter-v0',
+    entry_point='gym_lifter.envs:DiscreteLifterEnv',
+    max_episode_steps=20000,
+)
+
 
 register(
     id='LifterAutomod-v0',
